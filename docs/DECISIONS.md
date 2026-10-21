@@ -67,13 +67,6 @@ them calls `require_llm()` / `require_embeddings()` /
 `require_npm_lockfile_function_id()` and fails with the missing variable's
 name instead of a `None` surfacing somewhere deep in a request.
 
-## Pending (blocked on credentials)
-
-- **Spike A (VectorsDB)**, **Spike B (`npm_lockfile` Node function)** and
-  **Spike C (vendored Python function deploy)** need a live Appwrite project and
-  the Appwrite CLI, neither of which is set up in this environment. Outcomes get
-  recorded here once they run.
-
 ### `apply_upgrades` takes the lockfile regenerator as an argument
 
 §6.2 writes `apply_upgrades(self, plan, files)`, with the adapter reaching a
@@ -103,3 +96,10 @@ npm's `overrides` can pin almost anything, so the planner's fallback nearly
 always succeeds and `conflict` would otherwise be unreachable. It is reported
 for the one case that is genuinely contradictory: the manifest declares its own
 range for the package and the override target falls outside it.
+
+## Pending (blocked on credentials)
+
+- **Spike A (VectorsDB)**, **Spike B (`npm_lockfile` Node function)** and
+  **Spike C (vendored Python function deploy)** need a live Appwrite project and
+  the Appwrite CLI, neither of which is set up in this environment. Outcomes get
+  recorded here once they run.
