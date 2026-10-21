@@ -92,9 +92,12 @@ class Override(BaseModel):
 type UpgradeAction = Annotated[BumpDirect | BumpParent | Override, Field(discriminator="kind")]
 
 
+type UnresolvedReason = Literal["no_fix", "needs_major", "conflict"]
+
+
 class Unresolved(BaseModel):
     osv_id: str
-    reason: Literal["no_fix", "needs_major", "conflict"]
+    reason: UnresolvedReason
 
 
 class UpgradePlan(BaseModel):

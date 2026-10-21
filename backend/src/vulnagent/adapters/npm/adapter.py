@@ -4,8 +4,16 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from vulnagent.adapters.npm import parser
-from vulnagent.core.models import DepGraph, FileMap, Purl
+from vulnagent.adapters.npm import parser, planner
+from vulnagent.core.adapter import RegistryClient
+from vulnagent.core.models import (
+    DepGraph,
+    FileMap,
+    Purl,
+    UpgradeAction,
+    UpgradePlan,
+    VulnFinding,
+)
 
 
 class NpmAdapter:
@@ -19,6 +27,22 @@ class NpmAdapter:
 
     def parse_dependencies(self, files: FileMap) -> DepGraph:
         return parser.parse_lockfile(files)
+
+    def plan_upgrades(
+        self,
+        findings: list[VulnFinding],
+        graph: DepGraph,
+        *,
+        allow_major_bumps: bool,
+        registry: RegistryClient,
+    ) -> UpgradePlan:
+        return planner.plan_upgrades(
+            findings, graph, allow_major_bumps=allow_major_bumps, registry=registry
+        )
+
+    def manifest_range_for(self, action: UpgradeAction, declared: str) -> str:
+        """The range to write back into package.json for `action`."""
+        return planner.manifest_range_for(declared, action.to_version)
 
     def paths_to_root(self, graph: DepGraph, purl: Purl) -> list[list[Purl | str]]:
         """Dependency paths from the root down to ``purl``, for the dashboard."""
