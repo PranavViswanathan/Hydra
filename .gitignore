@@ -1,0 +1,32 @@
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Node
+node_modules/
+apps/dashboard/dist/
+
+# Build artifacts (vendored package copies, see scripts/build_functions.py)
+backend/functions/*/src/vulnagent/
+functions-node/*/node_modules/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
