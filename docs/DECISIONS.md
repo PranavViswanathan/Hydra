@@ -73,3 +73,33 @@ name instead of a `None` surfacing somewhere deep in a request.
   **Spike C (vendored Python function deploy)** need a live Appwrite project and
   the Appwrite CLI, neither of which is set up in this environment. Outcomes get
   recorded here once they run.
+
+### `apply_upgrades` takes the lockfile regenerator as an argument
+
+§6.2 writes `apply_upgrades(self, plan, files)`, with the adapter reaching a
+`LockfileRegenerator` on its own. Passing it in keeps adapters stateless and
+makes the dependency visible at the only call site that has it (the PATCHING
+step, which holds the Appwrite client). Same protocol otherwise.
+
+### Parent bumps are judged by the lowest version a range permits
+
+A parent version counts as a fix only when every version its dependency range
+permits is at or above the fixed version, not merely when the range allows one.
+Bumping express to a version whose range still permits the vulnerable qs is not
+a fix, even though npm would probably install a patched copy today. Testing the
+lowest permitted version is what makes that distinction, so planning asks the
+registry for the full version list and uses `min_satisfying`.
+
+### Chain search for parent bumps stops at depth 2
+
+Verifying that a candidate parent pulls in a fixed copy costs registry calls per
+level. In practice the vulnerable package is a direct dependency of the parent
+being bumped, so the search goes one level deeper than that and then falls back
+to an override.
+
+### `conflict` means an override would contradict the manifest
+
+npm's `overrides` can pin almost anything, so the planner's fallback nearly
+always succeeds and `conflict` would otherwise be unreachable. It is reported
+for the one case that is genuinely contradictory: the manifest declares its own
+range for the package and the override target falls outside it.
