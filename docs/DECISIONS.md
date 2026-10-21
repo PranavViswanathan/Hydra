@@ -44,6 +44,29 @@ Ruff's `UP040` flags `X: TypeAlias = ...` on Python 3.12. Using the `type`
 keyword instead; verified pydantic v2 resolves the discriminated union through
 the lazy alias (`tests/test_models.py`).
 
+### Repo config rejects unknown keys
+
+`extra="forbid"` on every config model. A typo like `enabeld: false` would
+otherwise silently keep the agent enabled, which is worse than showing the user
+a `config_error` on the dashboard. `paths` beyond `["."]` is rejected for the
+same reason: §2.3 makes it a non-goal for the MVP, so accepting the value and
+ignoring it would mislead.
+
+### Settings do not read `.env` unless a caller asks
+
+Deployed functions get their variables from Appwrite, so `load_settings()`
+reads only the process environment; local scripts opt in with
+`load_settings(dotenv=".env")`. Reading `.env` by default would have made the
+test suite depend on whether the developer happened to have one on disk.
+
+### Only Appwrite and GitHub credentials are required to boot
+
+`LLM_*`, `EMBEDDING_*` and `NPM_LOCKFILE_FUNCTION_ID` are optional on
+`Settings`, so a scan-only deployment starts without them. The code that needs
+them calls `require_llm()` / `require_embeddings()` /
+`require_npm_lockfile_function_id()` and fails with the missing variable's
+name instead of a `None` surfacing somewhere deep in a request.
+
 ## Pending (blocked on credentials)
 
 - **Spike A (VectorsDB)**, **Spike B (`npm_lockfile` Node function)** and
