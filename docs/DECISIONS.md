@@ -97,6 +97,33 @@ always succeeds and `conflict` would otherwise be unreachable. It is reported
 for the one case that is genuinely contradictory: the manifest declares its own
 range for the package and the override target falls outside it.
 
+### Embeddings come from Appwrite, not a third-party API
+
+§3 left this open ("check whether VectorsDB offers built-in embeddings; else a
+hosted embedding API"). The installed server SDK ships an `embeddings` service
+with `create_text_embeddings(texts, model)` and two models: `all-minilm` (384
+dimensions) and `nomic-embed-text` (768). So no third-party embedding key is
+needed, and `EMBEDDING_API_KEY` stays unused. `EMBEDDING_MODEL` must be one of
+those two names and `EMBEDDING_DIM` must match, because the dimension fixes the
+width of the VectorsDB column at creation time. Defaulting to `all-minilm`:
+smaller vectors, and error signatures are short text where the larger model
+buys little.
+
+### Vector search applies its similarity threshold client-side
+
+The SDK has `Query.vector_cosine(attribute, vector)` for ranking, but its
+`distance_less_than` is a geospatial query in meters, not a vector-distance
+filter. So the query asks for the top k ranked rows and the 0.80 threshold is
+applied to what comes back. Rows carry their score under one of several keys
+depending on the server; when none is present the similarity is recomputed
+locally from the stored embedding.
+
+### The TablesDB memory fallback uses pure Python, not numpy
+
+§8 suggests numpy for brute-force cosine. At the scale this runs at (hundreds
+of rows for one ecosystem) a plain comprehension is fast enough, and it keeps a
+large wheel out of every vendored function bundle.
+
 ## Pending (blocked on credentials)
 
 - **Spike A (VectorsDB)**, **Spike B (`npm_lockfile` Node function)** and
