@@ -124,6 +124,22 @@ locally from the stored embedding.
 of rows for one ecosystem) a plain comprehension is fast enough, and it keeps a
 large wheel out of every vendored function bundle.
 
+### GitHub access is a thin httpx client, not `githubkit`
+
+`githubkit` was the spec's primary choice and the earlier entry above recorded
+it. Replaced with a small httpx client plus `pyjwt[crypto]` for the app JWT.
+Two reasons: every Appwrite function vendors its dependencies, and githubkit
+carries generated pydantic models for the whole GitHub API, which is a large
+bundle for the dozen endpoints this uses; and the hand-written client keeps
+`mypy --strict` clean without casts around generated overloads. The endpoints
+used are the ones named in §4.3 and §9.3.
+
+### Safety rule 1 is enforced inside the GitHub client
+
+`create_branch`, `commit_files` and `open_pull_request` refuse any branch
+outside `vulnagent/*`. Putting the check at the boundary rather than in the
+calling step means no future caller can forget it.
+
 ## Pending (blocked on credentials)
 
 - **Spike A (VectorsDB)**, **Spike B (`npm_lockfile` Node function)** and
