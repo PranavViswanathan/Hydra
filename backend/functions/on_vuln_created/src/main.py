@@ -1,0 +1,47 @@
+"""Database event entry point: a new vulnerability row may wake the agent (§10)."""
+
+from __future__ import annotations
+
+import datetime as dt
+from typing import Any
+
+from vulnagent.config.schema import RepoConfig, parse_repo_config
+from vulnagent.core.models import meets_threshold
+from vulnagent.runtime import build_context
+from vulnagent.services.triggers import DEBOUNCE, start_agent_run
+
+
+def main(context: Any) -> Any:
+    row = context.req.body_json or {}
+    repo_id = str(row.get("repo_id", ""))
+    severity = str(row.get("severity", "unknown"))
+
+    app = build_context()
+    try:
+        repo = app.db.repos.get(repo_id)
+        if repo is None or repo.active_run_id:
+            return context.res.json({"status": "skipped"})
+
+        config = (
+            parse_repo_config(repo.config_json, path=".vulnagent.yml")
+            if repo.config_json
+            else RepoConfig()
+        )
+        if not (config.enabled and config.agent.auto_start and config.scan.on_new_advisory):
+            return context.res.json({"status": "disabled"})
+        if not meets_threshold(severity, config.agent.severity_threshold):
+            return context.res.json({"status": "below threshold"})
+
+        # Debounce: one scan can create many rows at once.
+        recent = [
+            run
+            for run in app.db.runs.for_repo(repo.id)
+            if dt.datetime.now(dt.UTC) - run.created_at < DEBOUNCE
+        ]
+        if recent:
+            return context.res.json({"status": "debounced"})
+
+        run = start_agent_run(app, repo, trigger="auto")
+        return context.res.json({"run_id": run.id})
+    finally:
+        app.close()

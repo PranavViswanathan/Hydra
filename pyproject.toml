@@ -1,2 +1,14 @@
 [tool.uv.workspace]
 members = ["backend"]
+
+# Lint settings for the operational scripts at the repository root. The
+# backend package carries its own, stricter copy in backend/pyproject.toml.
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["vulnagent"]

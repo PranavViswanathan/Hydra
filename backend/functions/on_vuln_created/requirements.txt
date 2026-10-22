@@ -1,0 +1,10 @@
+appwrite
+httpx
+pydantic
+pydantic-settings
+PyYAML
+node-semver
+croniter
+cvss
+PyJWT[crypto]
+anthropic

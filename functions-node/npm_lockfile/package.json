@@ -1,0 +1,8 @@
+{
+  "name": "npm-lockfile",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/main.js",
+  "description": "Regenerates a package-lock.json for VulnAgent. No other logic.",
+  "private": true
+}

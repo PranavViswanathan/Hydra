@@ -1,0 +1,83 @@
+@import 'tailwindcss';
+
+/* §14.3: dark by default, monospace for package names and versions, and a
+   severity scale that stays legible on a dark ground. */
+@theme {
+  --color-ink-950: #0a0c10;
+  --color-ink-900: #10131a;
+  --color-ink-850: #151924;
+  --color-ink-800: #1b2030;
+  --color-ink-700: #272d3f;
+  --color-ink-600: #3a4257;
+  --color-ink-400: #7d87a1;
+  --color-ink-200: #c3cada;
+  --color-ink-50: #eef1f7;
+
+  --color-critical: #f0556d;
+  --color-high: #f58a42;
+  --color-medium: #e0b341;
+  --color-low: #7f93b8;
+  --color-unknown: #5b6478;
+
+  --color-accent: #6ba8ff;
+  --color-good: #4fc08d;
+
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-ink-950);
+  color: var(--color-ink-50);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* A quiet scrollbar, so long tables do not shout. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-700);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgb(107 168 255 / 45%);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgb(107 168 255 / 0%);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(107 168 255 / 0%);
+  }
+}
+
+.working-dot {
+  animation: pulse-ring 1.8s cubic-bezier(0.66, 0, 0, 1) infinite;
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.event-row {
+  animation: slide-in 220ms ease-out;
+}
