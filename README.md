@@ -8,25 +8,26 @@ was fixed before, and pushes a patch. When the PR merges, it goes back to sleep.
 ## Quickstart
 
 ```bash
-cd backend && uv sync --extra dev        # install the backend
-uv run pytest                            # run the test suite
-cd ../apps/dashboard && npm install      # install the dashboard
-npm run dev                              # open http://localhost:5173
+make install    # backend and dashboard dependencies
+make demo       # open http://localhost:5173
+make check      # lint, type-check and test everything
 ```
 
-The dashboard runs on demo data until `VITE_APPWRITE_PROJECT_ID` is set, so you
-can see the whole interface, including a scripted agent run, before any
-credentials exist.
+`make demo` runs the dashboard on demo data, so you can see the whole
+interface before any credentials exist. Press **Fix now** on the test
+repository to watch an agent run play out: plan, pull request, CI failure,
+memory hit, repair, merge, counts back to zero.
+
+Run `make` on its own for every target.
 
 ## Setting it up for real
 
 ```bash
-cp .env.example .env                                  # fill in the values
-uv run python scripts/bootstrap_db.py                 # create the tables
-uv run python scripts/bootstrap_vectors.py            # create the vector store
-uv run python scripts/seed_memory.py                  # seed the failure memory
-uv run python scripts/build_functions.py              # vendor the shared package
-appwrite push functions                               # deploy
+make env        # create .env from the example, then fill it in
+make doctor     # check the toolchain and which variables are still empty
+make bootstrap  # create the TablesDB schema and the vector store
+make seed       # seed the failure memory
+make deploy     # run the checks, package the functions and push them
 ```
 
 ## Docs

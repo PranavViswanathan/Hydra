@@ -63,10 +63,10 @@ export function Button({
   title,
 }: {
   children: ReactNode
-  onClick?: () => void
-  variant?: 'primary' | 'secondary' | 'ghost'
-  disabled?: boolean
-  title?: string
+  onClick?: (() => void) | undefined
+  variant?: 'primary' | 'secondary' | 'ghost' | undefined
+  disabled?: boolean | undefined
+  title?: string | undefined
 }) {
   const styles = {
     primary: 'bg-accent text-ink-950 hover:bg-accent/85 font-medium',

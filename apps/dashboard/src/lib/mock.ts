@@ -281,6 +281,16 @@ class MockBackend {
     return () => this.listeners.delete(listener)
   }
 
+  /** Back to the starting state, for tests and for a reloaded demo. */
+  reset(): void {
+    for (const timer of this.timers) window.clearTimeout(timer)
+    this.timers = []
+    this.repos = REPOS.map((repo) => ({ ...repo }))
+    this.vulnerabilities = VULNERABILITIES.map((vuln) => ({ ...vuln }))
+    this.runs = []
+    this.events = []
+  }
+
   listRepos(): Repo[] {
     return this.repos.map((repo) => ({ ...repo }))
   }
