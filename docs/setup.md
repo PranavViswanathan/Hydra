@@ -1,112 +1,256 @@
 # Setup
 
-Everything VulnAgent needs before it can run against a real repository.
+A walkthrough from nothing to a working agent. For the reference tables, see
+[Configuration](configuration.md); for what gets pushed where, see
+[Deployment](deployment.md).
 
-## 1. Appwrite
+Budget about an hour, most of it waiting on GitHub and Appwrite consoles.
 
-1. Create a project, note its ID.
-2. Create a server API key with these scopes: `databases.read`,
-   `databases.write`, `documents.read`, `documents.write`, `functions.read`,
-   `functions.write`, `execution.write`, `users.read`.
-3. Install the CLI and sign in:
+- [Before you start](#before-you-start)
+- [1. Appwrite project](#1-appwrite-project)
+- [2. The schema](#2-the-schema)
+- [3. GitHub App](#3-github-app)
+- [4. Environment](#4-environment)
+- [5. Deploy](#5-deploy)
+- [6. Close the loop](#6-close-the-loop)
+- [7. Dashboard](#7-dashboard)
+- [8. Test repository](#8-test-repository)
+- [9. The first end-to-end run](#9-the-first-end-to-end-run)
 
-   ```bash
-   npm install -g appwrite-cli
-   appwrite login
-   ```
+## Before you start
 
-4. Create the schema:
+```bash
+make doctor
+```
 
-   ```bash
-   cd backend
-   uv run python ../scripts/bootstrap_db.py          # tables, columns, indexes
-   uv run python ../scripts/bootstrap_vectors.py     # vector store (spike A)
-   ```
+You need `uv`, `python3`, `node`, `npm`, and the Appwrite CLI. `gh` is only
+needed for the test-repo reset script.
 
-   `bootstrap_db.py --check` reports what is missing without changing anything.
+```bash
+npm install -g appwrite-cli
+appwrite login
+```
 
-**If `bootstrap_vectors.py` exits 2**, VectorsDB needs a dedicated database on
-your plan. Three options: self-host Appwrite with Docker, pay for one dedicated
-database, or do nothing and let the agent use `TablesDBMemory`, which it falls
-back to automatically. The agent works either way.
+## 1. Appwrite project
 
-## 2. GitHub App
+Create a project and note its ID. Then create a **server API key** with:
+
+```
+databases.read    databases.write
+documents.read    documents.write
+functions.read    functions.write
+execution.write   users.read
+```
+
+This key is the one every function uses. It never reaches the browser.
+
+## 2. The schema
+
+```bash
+make env     # creates .env from the example
+# fill in APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID, APPWRITE_API_KEY
+make bootstrap
+```
+
+That runs two scripts:
+
+**`bootstrap_db.py`** creates the database, ten tables, their columns and
+indexes. It is idempotent: anything already present is left alone, so re-run
+it after pulling a schema change. `make bootstrap-check` reports drift without
+touching anything.
+
+**`bootstrap_vectors.py`** creates the vector store. This is M0 spike A, and
+it is allowed to fail.
+
+> **If it exits 2**, VectorsDB needs a dedicated database on your plan. Your
+> options are self-hosting, paying for one dedicated database, or doing
+> nothing and letting `TablesDBMemory` take over, which happens automatically
+> with no code change. See [Failure memory](memory.md#two-implementations).
+
+Then seed the memory so the first repair has something to recall:
+
+```bash
+make seed
+```
+
+## 3. GitHub App
 
 Create one at <https://github.com/settings/apps/new>.
 
+**Repository permissions**
+
+| Permission | Level | Why |
+|---|---|---|
+| Contents | read & write | Read manifests, push branches and commits |
+| Pull requests | read & write | Open, label, comment, merge |
+| Checks | read | See whether CI passed |
+| Actions | read | Download job logs for the repair step |
+| Metadata | read | Mandatory |
+| Commit statuses | read | Older CI integrations report here |
+
+**Do not** request Workflows write. The agent must not be able to edit CI, and
+not holding the permission is a stronger guarantee than a code rule.
+
+**Subscribe to events**
+
+Installation · Installation repositories · Push · Pull request ·
+Workflow run · Check suite
+
+**Other settings**
+
 | Setting | Value |
 |---|---|
-| Repository permissions | Contents **read & write**, Pull requests **read & write**, Checks **read**, Actions **read**, Metadata **read**, Commit statuses **read** |
-| Do **not** request | Workflows write |
-| Subscribe to events | Installation, Installation repositories, Push, Pull request, Workflow run, Check suite |
-| Webhook URL | the deployed `github_webhook` function's domain |
-| Webhook secret | anything long and random; it goes in `GITHUB_WEBHOOK_SECRET` |
+| Webhook URL | `github_webhook`'s domain, which does not exist yet — see step 6 |
+| Webhook secret | Something long and random; it goes in `GITHUB_WEBHOOK_SECRET` |
 | Setup URL | `<dashboard>/setup`, with "Redirect on update" enabled |
 
 Generate a private key and download the PEM.
 
-The webhook URL is a chicken-and-egg: deploy the functions once to get the
-domain, then come back and fill it in. For local development, point the webhook
-at a [smee.io](https://smee.io) channel and forward it to your machine.
+For local development, point the webhook at a [smee.io](https://smee.io)
+channel and forward it to your machine, rather than deploying on every change.
 
-## 3. Environment
+## 4. Environment
 
-Copy `.env.example` to `.env` and fill it in.
-
-| Variable | Notes |
-|---|---|
-| `APPWRITE_ENDPOINT` | `https://cloud.appwrite.io/v1` unless self-hosting |
-| `APPWRITE_PROJECT_ID`, `APPWRITE_API_KEY` | from step 1 |
-| `GITHUB_APP_ID` | the numeric id, not the slug |
-| `GITHUB_APP_PRIVATE_KEY` | the PEM; one line with `\n` escapes is accepted |
-| `GITHUB_WEBHOOK_SECRET` | must match the app |
-| `GITHUB_APP_SLUG` | used to build the install link in the dashboard |
-| `LLM_API_KEY`, `LLM_MODEL` | Anthropic; `claude-opus-5` by default |
-| `EMBEDDING_MODEL`, `EMBEDDING_DIM` | `all-minilm`/384 or `nomic-embed-text`/768. Appwrite provides the embeddings, so `EMBEDDING_API_KEY` stays empty |
-| `NPM_LOCKFILE_FUNCTION_ID` | the deployed Node function's id |
-| `VITE_*` | public values for the dashboard only |
-
-Only the Appwrite and GitHub variables are required to boot. A deployment
-without `LLM_*` scans and opens pull requests but cannot repair CI.
-
-## 4. Deploy
+Fill in the rest of `.env`. Full reference in
+[Configuration](configuration.md#environment-variables); the ones that matter
+now:
 
 ```bash
-uv run python scripts/build_functions.py   # vendor vulnagent/ into each function
-appwrite push functions
+GITHUB_APP_ID=123456
+GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
+GITHUB_WEBHOOK_SECRET=the-secret-you-invented
+GITHUB_APP_SLUG=your-app-slug
+
+LLM_API_KEY=sk-ant-...
+LLM_MODEL=claude-opus-5
+
+EMBEDDING_MODEL=all-minilm
+EMBEDDING_DIM=384
 ```
 
-`build_functions.py` exists because Appwrite builds each function from its own
-folder and cannot see the uv workspace. Re-run it after any change to
-`backend/src/vulnagent/`.
-
-## 5. Dashboard
+The PEM can be one line with `\n` escapes; it is unescaped on load.
+`EMBEDDING_API_KEY` stays empty: Appwrite provides embeddings itself.
 
 ```bash
-cd apps/dashboard
-npm install
-npm run dev
+make doctor   # confirms what is still blank
 ```
 
-With no `VITE_APPWRITE_PROJECT_ID` it runs on demo data. Set the three `VITE_`
-variables to point it at your project. Deploying to Appwrite Sites is optional;
-any static host works.
-
-## 6. Test repository
-
-The end-to-end flow needs a repository that is actually vulnerable. Create a
-public `vulnagent-test-app` with a small Express + TypeScript API, a real
-Vitest suite, and a workflow running `npm ci && npm test`, pinned to:
-
-- a **direct** dependency with a non-breaking patch fix (old `lodash`)
-- a **transitive** vulnerability fixable by bumping its parent (`qs` via `express`)
-- a dependency whose fix is a **major bump that breaks a test**
-  (`jsonwebtoken` 8 to 9) — verify the advisory and the breaking behavior
-  against OSV and the changelog first
-
-Tag the vulnerable state `vulnerable-baseline`, then reset between runs with:
+## 5. Deploy
 
 ```bash
-./scripts/reset_test_repo.sh pranav/vulnagent-test-app
-uv run python scripts/reset_test_rows.py pranav/vulnagent-test-app
+make deploy
 ```
+
+Runs the checks, vendors the shared package into each function, and pushes.
+Fill in `projectId` in `appwrite.config.json` before the first push.
+
+Then set each function's environment variables in the Appwrite console. The
+per-function list is in [Deployment](deployment.md#deploying); `agent_step`
+needs all of them, the others need a subset.
+
+## 6. Close the loop
+
+Now that the functions exist, `github_webhook` has a domain. Copy it into the
+GitHub App's **Webhook URL** field.
+
+Set `NPM_LOCKFILE_FUNCTION_ID` to the deployed Node function's id, and
+`SCAN_REPO_FUNCTION_ID` / `AGENT_STEP_FUNCTION_ID` if your function ids differ
+from the defaults (`scan_repo`, `agent_step`).
+
+## 7. Dashboard
+
+Add the public values to `.env`:
+
+```bash
+VITE_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+VITE_APPWRITE_PROJECT_ID=your-project-id
+VITE_API_FUNCTION_ID=api
+VITE_GITHUB_APP_SLUG=your-app-slug
+```
+
+```bash
+make build-ui   # → apps/dashboard/dist
+```
+
+These are inlined at build time, so a change means a rebuild. Host `dist/`
+anywhere that serves `index.html` for unknown paths.
+
+Enable the **GitHub OAuth provider** in Appwrite's Auth settings, which is
+separate from the GitHub App and is what signs users in.
+
+## 8. Test repository
+
+The end-to-end flow needs a repository that is genuinely vulnerable in three
+different ways. Create a public `vulnagent-test-app`:
+
+- A small Express + TypeScript API
+- A real Vitest suite that exercises the code being upgraded
+- A workflow running `npm ci && npm test` on pull requests
+
+Pinned to three deliberate problems:
+
+| Problem | Example | Exercises |
+|---|---|---|
+| Direct, non-breaking patch | old `lodash` | `BumpDirect` |
+| Transitive, fixable by a parent | `qs` via `express` | `BumpParent` |
+| Major bump that **breaks a test** | `jsonwebtoken` 8 → 9 | The whole repair loop |
+
+Verify the advisories and the breaking behavior against OSV and the changelog
+before relying on them. The third one is the point of the exercise: if the
+test suite does not actually fail on the upgrade, the repair loop never runs
+and the end-to-end flow proves nothing.
+
+Its `.vulnagent.yml`:
+
+```yaml
+version: 1
+agent:
+  allow_major_bumps: true
+  severity_threshold: medium
+  auto_merge: true
+  max_ci_retries: 3
+```
+
+Tag the vulnerable state so it can be restored:
+
+```bash
+git tag vulnerable-baseline && git push --tags
+```
+
+Then reset between runs with:
+
+```bash
+make reset TEST_REPO=you/vulnagent-test-app
+```
+
+## 9. The first end-to-end run
+
+1. Install the app on the test repository.
+2. Confirm `installations` and `repos` rows appeared.
+3. Sign in to the dashboard. The repository should be listed, possibly with no
+   counts yet.
+4. Press **Scan now**. Counts appear within a few seconds.
+5. Press **Fix now** and watch the timeline.
+
+What you are looking for, in order:
+
+```
+Run queued (manual)
+Selected N vulnerabilities to fix
+Planned N dependency changes
+Pushed 2 files
+Opened pull request #1
+CI failed: TypeError: jwt.sign is not a function
+Found a past fix for a similar failure (similarity 0.9x)   ← the memory hit
+jsonwebtoken 9 removed the callable default export ...      ← the repair
+CI passed
+Pull request #1 merged
+N vulnerabilities marked fixed
+```
+
+Counts drop to zero and the repository returns to Sleeping 😴.
+
+If any step stalls, [Troubleshooting](troubleshooting.md) is organised by
+symptom. The run that most often needs attention is the first one, because it
+is the first time the webhook URL, the function ids and the Node helper are
+all exercised together.
