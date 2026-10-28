@@ -5,11 +5,13 @@ import { AgentPanel } from '../components/AgentPanel'
 import {
   AgentStateBadge,
   Button,
-  Card,
-  CardHeader,
   Empty,
+  ExposureStrip,
   Mono,
+  Section,
   SeverityBadge,
+  Sheet,
+  StripLegend,
   relativeTime,
   runLabel,
 } from '../components/primitives'
@@ -23,6 +25,7 @@ import {
 } from '../hooks/useData'
 import {
   SEVERITIES,
+  countsOf,
   isTerminal,
   openCount,
   type DependencyEdge,
@@ -34,11 +37,11 @@ import {
 type Filter = 'open' | 'all' | Severity
 
 const STATUS_STYLE: Record<VulnStatus, string> = {
-  open: 'text-ink-200',
-  in_progress: 'text-accent',
-  fixed: 'text-good',
-  ignored: 'text-ink-400',
-  unfixable: 'text-ink-400',
+  open: 'text-graphite',
+  in_progress: 'text-verdigris',
+  fixed: 'text-verdigris',
+  ignored: 'text-lichen',
+  unfixable: 'text-lichen',
   needs_major: 'text-high',
 }
 
@@ -78,119 +81,133 @@ export function RepoDetail() {
   const busy = repo.agent_state === 'working' || repo.agent_state === 'scanning'
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <Link to="/" className="text-sm text-ink-400 hover:text-ink-200">
-            ← All repositories
-          </Link>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{repo.full_name}</h1>
-          <div className="mt-2 flex items-center gap-4">
-            <AgentStateBadge state={repo.agent_state} />
-            <span className="text-sm text-ink-400">
-              last scanned {relativeTime(repo.last_scan_at)}
-            </span>
+    <div className="space-y-12">
+      <header>
+        <Link to="/" className="text-[14px] text-lichen hover:text-graphite">
+          Repositories
+        </Link>
+        <div className="mt-2 flex flex-wrap items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h1 className="text-[26px] leading-[1.1] font-[650] tracking-[-0.015em] break-words font-stretch-[125%] sm:text-[40px]">
+              {repo.full_name}
+            </h1>
+            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1">
+              <AgentStateBadge state={repo.agent_state} />
+              <span className="text-[14px] text-lichen">
+                last scanned {relativeTime(repo.last_scan_at)}
+              </span>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={() => scan.mutate(repo.id)} disabled={busy}>
+              Scan now
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => fix.mutate(repo.id)}
+              disabled={busy || openCount(repo) === 0}
+            >
+              Fix now
+            </Button>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => scan.mutate(repo.id)} disabled={busy}>
-            Scan now
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => fix.mutate(repo.id)}
-            disabled={busy || openCount(repo) === 0}
-          >
-            Fix now
-          </Button>
+
+        <div className="mt-8">
+          <ExposureStrip counts={countsOf(repo)} label={`Open in ${repo.full_name}`} />
+          <StripLegend counts={countsOf(repo)} />
         </div>
       </header>
 
       {repo.config_error && (
-        <Card className="border-critical/40 bg-critical/5 px-5 py-4">
-          <p className="text-sm font-medium text-critical">
+        <div className="rounded-md border-l-4 border-critical bg-critical/8 px-5 py-4">
+          <p className="font-semibold text-critical">
             The agent is paused: .vulnagent.yml could not be read
           </p>
-          <p className="mt-1 font-mono text-[13px] text-ink-200">{repo.config_error}</p>
-        </Card>
+          <p className="mt-1 font-mono text-[12.5px] text-graphite">{repo.config_error}</p>
+        </div>
       )}
 
       <AgentPanel run={activeRun} />
 
-      <Card>
-        <CardHeader
-          title="Vulnerabilities"
-          right={
-            <div className="flex gap-1">
-              {(['open', 'all', ...SEVERITIES] as Filter[]).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setFilter(option)}
-                  className={`rounded px-2 py-1 text-xs transition-colors ${
-                    filter === option
-                      ? 'bg-ink-700 text-ink-50'
-                      : 'text-ink-400 hover:text-ink-200'
-                  }`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          }
-        />
-        {shown.length === 0 ? (
-          <Empty title="Nothing to show for this filter." />
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-ink-800 text-left text-xs tracking-wide text-ink-400 uppercase">
-                <th className="px-5 py-2.5 font-medium">Advisory</th>
-                <th className="px-3 py-2.5 font-medium">Package</th>
-                <th className="px-3 py-2.5 font-medium">Installed → fixed</th>
-                <th className="px-3 py-2.5 font-medium">Severity</th>
-                <th className="px-3 py-2.5 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((vuln) => (
-                <VulnRow key={vuln.id} vuln={vuln} edges={edges} />
-              ))}
-            </tbody>
-          </table>
-        )}
-      </Card>
-
-      <Card>
-        <CardHeader title="Past runs" />
-        {runs.length === 0 ? (
-          <Empty title="The agent has not run on this repository yet." />
-        ) : (
-          <ul className="divide-y divide-ink-800">
-            {runs.map((run) => (
-              <li key={run.id} className="flex items-center justify-between px-5 py-3 text-sm">
-                <div>
-                  <span className="text-ink-200">{runLabel(run.state)}</span>
-                  <span className="ml-2 text-ink-400">
-                    {run.trigger === 'manual' ? 'started by hand' : 'started automatically'} ·{' '}
-                    {relativeTime(run.created_at)}
-                  </span>
-                </div>
-                {run.pr_url && (
-                  <a
-                    href={run.pr_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-mono text-[13px] text-accent hover:underline"
-                  >
-                    #{run.pr_number}
-                  </a>
-                )}
-              </li>
+      <Section
+        title="Vulnerabilities"
+        right={
+          <div className="flex flex-wrap gap-0.5 rounded bg-sheet p-0.5 ring-1 ring-rule">
+            {(['open', 'all', ...SEVERITIES] as Filter[]).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={filter === option}
+                onClick={() => setFilter(option)}
+                className={`rounded-[3px] px-2.5 py-1 text-[13px] transition-colors ${
+                  filter === option
+                    ? 'bg-graphite text-sheet'
+                    : 'text-lichen hover:text-graphite'
+                }`}
+              >
+                {option}
+              </button>
             ))}
-          </ul>
-        )}
-      </Card>
+          </div>
+        }
+      >
+        <Sheet>
+          {shown.length === 0 ? (
+            <Empty title="Nothing to show for this filter." />
+          ) : (
+            <table className="w-full min-w-[760px] text-left text-[14px]">
+              <thead>
+                <tr className="border-b border-rule text-[13px] text-lichen">
+                  <th className="px-5 py-2.5 font-medium">Advisory</th>
+                  <th className="px-3 py-2.5 font-medium">Package</th>
+                  <th className="px-3 py-2.5 font-medium">Installed → fixed</th>
+                  <th className="px-3 py-2.5 font-medium">Severity</th>
+                  <th className="px-3 py-2.5 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((vuln) => (
+                  <VulnRow key={vuln.id} vuln={vuln} edges={edges} />
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Sheet>
+      </Section>
+
+      <Section title="Past runs">
+        <Sheet>
+          {runs.length === 0 ? (
+            <Empty title="The agent has not run on this repository yet." />
+          ) : (
+            <table className="w-full text-left text-[14px]">
+              <tbody>
+                {runs.map((run) => (
+                  <tr key={run.id} className="border-b border-rule last:border-0">
+                    <td className="px-5 py-3 font-semibold">{runLabel(run.state)}</td>
+                    <td className="px-3 py-3 text-lichen">
+                      {run.trigger === 'manual' ? 'started by hand' : 'started automatically'}
+                    </td>
+                    <td className="px-3 py-3 text-lichen">{relativeTime(run.created_at)}</td>
+                    <td className="px-5 py-3 text-right">
+                      {run.pr_url && (
+                        <a
+                          href={run.pr_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-mono text-[12.5px] text-verdigris font-stretch-[87.5%] hover:underline"
+                        >
+                          #{run.pr_number}
+                        </a>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Sheet>
+      </Section>
     </div>
   )
 }
@@ -201,39 +218,46 @@ function VulnRow({ vuln, edges }: { vuln: Vulnerability; edges: DependencyEdge[]
 
   return (
     <>
-      <tr className="border-b border-ink-800/60 last:border-0 hover:bg-ink-850/40">
+      <tr className="border-b border-rule last:border-0 hover:bg-ground/50">
         <td className="px-5 py-3">
           <a
             href={`https://osv.dev/vulnerability/${vuln.osv_id}`}
             target="_blank"
             rel="noreferrer"
-            className="font-mono text-[13px] text-accent hover:underline"
+            className="font-mono text-[12.5px] text-verdigris font-stretch-[87.5%] hover:underline"
           >
             {vuln.osv_id}
           </a>
           {vuln.aliases && vuln.aliases.length > 0 && (
-            <span className="ml-2 font-mono text-[12px] text-ink-400">
+            <span className="mt-0.5 block font-mono text-[11.5px] text-lichen font-stretch-[87.5%]">
               {vuln.aliases.join(', ')}
             </span>
           )}
         </td>
         <td className="px-3 py-3">
           <Mono>{vuln.package_name}</Mono>
-          <button
-            type="button"
-            onClick={() => setShowPath((shown) => !shown)}
-            className={`ml-2 text-[11px] ${vuln.is_direct ? 'text-ink-400' : 'text-accent hover:underline'}`}
-          >
-            {vuln.is_direct ? 'direct' : showPath ? 'hide path' : 'transitive'}
-          </button>
+          {vuln.is_direct ? (
+            <span className="ml-2 text-[12px] text-lichen">direct</span>
+          ) : (
+            <button
+              type="button"
+              aria-expanded={showPath}
+              onClick={() => setShowPath((shown) => !shown)}
+              className="ml-2 text-[12px] text-verdigris underline decoration-verdigris/40 underline-offset-2 hover:decoration-verdigris"
+            >
+              {showPath ? 'hide path' : 'transitive'}
+            </button>
+          )}
         </td>
-        <td className="px-3 py-3">
+        <td className="px-3 py-3 whitespace-nowrap">
           <Mono>{vuln.installed_version}</Mono>
-          <span className="mx-1.5 text-ink-600">→</span>
+          <span className="mx-1.5 text-faint" aria-label="to">
+            →
+          </span>
           {vuln.fixed_version ? (
             <Mono>{vuln.fixed_version}</Mono>
           ) : (
-            <span className="text-ink-400">no fix</span>
+            <span className="text-lichen">no fix</span>
           )}
         </td>
         <td className="px-3 py-3">
@@ -242,27 +266,33 @@ function VulnRow({ vuln, edges }: { vuln: Vulnerability; edges: DependencyEdge[]
         <td className={`px-3 py-3 ${STATUS_STYLE[vuln.status]}`}>{STATUS_LABEL[vuln.status]}</td>
       </tr>
       {showPath && (
-        <tr className="bg-ink-950/60">
+        <tr className="border-b border-rule bg-ground/60">
           <td colSpan={5} className="px-5 py-3">
             {path.length === 0 ? (
-              <span className="text-sm text-ink-400">No recorded path to the root.</span>
+              <span className="text-[14px] text-lichen">No recorded path to the root.</span>
             ) : (
-              <div className="flex flex-wrap items-center gap-2 font-mono text-[12px]">
+              <ol className="flex flex-wrap items-center gap-2 font-mono text-[12px] font-stretch-[87.5%]">
                 {path.map((step, index) => (
-                  <span key={`${step}-${index}`} className="flex items-center gap-2">
-                    {index > 0 && <span className="text-ink-600">→</span>}
+                  <li key={`${step}-${index}`} className="flex items-center gap-2">
+                    {index > 0 && (
+                      <span className="text-faint" aria-hidden>
+                        →
+                      </span>
+                    )}
                     <span
                       className={
                         step === 'ROOT'
-                          ? 'rounded bg-ink-800 px-1.5 py-0.5 text-ink-400'
-                          : 'text-ink-200'
+                          ? 'font-sans text-[13px] text-lichen'
+                          : index === path.length - 1
+                            ? 'text-critical'
+                            : 'text-graphite'
                       }
                     >
                       {step === 'ROOT' ? 'your package.json' : prettyPurl(step)}
                     </span>
-                  </span>
+                  </li>
                 ))}
-              </div>
+              </ol>
             )}
           </td>
         </tr>

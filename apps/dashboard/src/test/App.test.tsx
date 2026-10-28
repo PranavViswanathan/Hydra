@@ -52,6 +52,43 @@ describe('the repositories overview', () => {
     expect(critical).toHaveTextContent('1')
   })
 
+  it('states how many vulnerabilities are open and where', async () => {
+    show()
+
+    expect(
+      await screen.findByRole('heading', {
+        name: '13 open vulnerabilities across 4 repositories',
+      }),
+    ).toBeVisible()
+  })
+
+  it('says the agent is asleep when no repository is being worked on', async () => {
+    show()
+
+    expect(await screen.findByText('The agent is asleep.')).toBeVisible()
+  })
+
+  it('names the repository the agent is working on', async () => {
+    show()
+    const row = await rowFor('pranav/vulnagent-test-app')
+
+    await userEvent.click(within(row).getByRole('button', { name: 'Fix now' }))
+
+    expect(
+      await screen.findByText('The agent is working on pranav/vulnagent-test-app.'),
+    ).toBeVisible()
+  })
+
+  it('reads the exposure strip out by severity', async () => {
+    show()
+
+    expect(
+      await screen.findByRole('img', {
+        name: 'Open across all repositories: 1 critical, 3 high, 3 medium, 3 low, 3 unknown',
+      }),
+    ).toBeInTheDocument()
+  })
+
   it('shows the severity breakdown on each repository', async () => {
     show()
 

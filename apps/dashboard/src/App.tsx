@@ -13,7 +13,7 @@ export function App() {
   useLiveUpdates()
 
   if (isLoading) {
-    return <div className="p-10 text-sm text-ink-400">Loading…</div>
+    return <div className="p-10 text-[14px] text-lichen">Loading…</div>
   }
 
   if (!session) {
@@ -28,7 +28,7 @@ export function App() {
   return (
     <div className="min-h-screen">
       <TopBar name={session.name} />
-      <main className="mx-auto max-w-6xl px-6 py-8">
+      <main className="mx-auto max-w-[1120px] px-4 pt-10 pb-20 sm:px-6">
         <Routes>
           <Route path="/" element={<Overview />} />
           <Route path="/repos/:repoId" element={<RepoDetail />} />
@@ -43,21 +43,24 @@ export function App() {
 
 function TopBar({ name }: { name: string }) {
   return (
-    <header className="sticky top-0 z-10 border-b border-ink-800 bg-ink-950/85 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-        <a href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-          <span aria-hidden>🔒</span> VulnAgent
+    <header className="sticky top-0 z-10 border-b border-rule bg-ground/90 backdrop-blur">
+      <div className="mx-auto flex max-w-[1120px] items-center justify-between px-4 py-3 sm:px-6">
+        <a
+          href="/"
+          className="text-[17px] font-bold tracking-[-0.01em] font-stretch-[125%]"
+        >
+          VulnAgent
         </a>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {api.demo && (
             <span
-              className="rounded-md bg-medium/15 px-2 py-0.5 text-xs text-medium ring-1 ring-medium/30 ring-inset"
+              className="rounded px-2 py-0.5 text-[12.5px] text-medium ring-1 ring-medium/50 ring-inset"
               title="No Appwrite project is configured, so this is demo data."
             >
               demo data
             </span>
           )}
-          <span className="text-sm text-ink-400">{name}</span>
+          <span className="text-[14px] text-lichen">{name}</span>
           {!api.demo && (
             <Button
               variant="ghost"

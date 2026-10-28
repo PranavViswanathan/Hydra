@@ -175,33 +175,46 @@ set, so the timeline animates identically.
 
 ## Design
 
-Dark by default, per §14.3. The palette is defined once as Tailwind v4 theme
-tokens in `index.css`:
+The full rationale is in [plans/dashboard-redesign.md](../plans/dashboard-redesign.md).
+Vulnerabilities read as corrosion on a dependency tree: mineral grounds,
+oxide colours for severity, verdigris for the agent. Light and dark both
+follow `prefers-color-scheme`; the values live once in `index.css` as CSS
+variables, exposed to Tailwind v4 through `@theme inline`.
 
-| Token | Use |
-|---|---|
-| `ink-950` … `ink-50` | Backgrounds through to primary text |
-| `critical` `#f0556d` | Critical severity |
-| `high` `#f58a42` | High |
-| `medium` `#e0b341` | Medium, and memory hits |
-| `low` `#7f93b8` | Low |
-| `unknown` `#5b6478` | Unscored |
-| `accent` `#6ba8ff` | Interactive, agent activity |
-| `good` `#4fc08d` | Success |
+| Token | Light | Dark | Use |
+|---|---|---|---|
+| `ground` | `#ecefea` | `#151d1a` | Page |
+| `sheet` | `#f8f9f6` | `#1c2622` | Tables and other raised surfaces |
+| `graphite` | `#1c2522` | `#e4ebe6` | Primary text |
+| `lichen` | `#5a6762` | `#93a39c` | Secondary text |
+| `rule` | `#d3d9d4` | `#2c3833` | Hairlines, empty strip track |
+| `verdigris` | `#1f7562` | `#63c7ac` | The agent, actions, links, success |
+| `critical` | `#b8322a` | `#f0645a` | Critical severity |
+| `high` | `#c25e18` | `#f2934b` | High |
+| `medium` | `#9a7e0c` | `#e2c04a` | Medium, and memory hits |
+| `low` | `#5f7484` | `#9ab0c0` | Low |
+| `unknown` | `#868c85` | `#8f968f` | Unscored |
 
-Package names and versions are monospace, because they are identifiers and
-proportional type makes `4.17.20` and `4.17.2` harder to tell apart than they
-should be.
+Type is Archivo (variable width and weight) for everything, set expanded for
+headlines, and Martian Mono for package names, versions, advisory ids and PR
+numbers, because proportional type makes `4.17.20` and `4.17.2` harder to
+tell apart than they should be. Both are bundled through Fontsource, so the
+dashboard needs no font CDN.
 
-Two small animations earn their place: a pulsing ring on the agent dot while a
-run is active, and a short slide-in on new timeline rows so an event arriving
-over Realtime is noticed rather than silently appearing.
+The exposure strip is the signature element: open vulnerabilities as one
+proportional bar, on the overview, on each repository row and on the detail
+header. Its segments keep their place at zero, so when a run merges the bar
+visibly drains to verdigris. That transition, the crawling stripe on the
+active run step, and a short fade on new timeline rows are the only motion,
+and all of it is off under `prefers-reduced-motion`.
 
-Severity is never encoded by color alone; every badge carries its label.
+Severity is never encoded by color alone: every badge carries its label and
+the strip has a spoken summary. Timeline marks differ by shape as well as
+colour (square for failures, diamond for memory hits).
 
 ## Testing
 
-16 tests in `src/test/App.test.tsx`, run with Vitest and Testing Library
+20 tests in `src/test/App.test.tsx`, run with Vitest and Testing Library
 against jsdom. They drive the real `App` through the real `api`, in demo mode,
 so what they exercise is the same wiring a live project uses.
 

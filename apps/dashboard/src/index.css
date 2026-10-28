@@ -1,83 +1,130 @@
 @import 'tailwindcss';
 
-/* §14.3: dark by default, monospace for package names and versions, and a
-   severity scale that stays legible on a dark ground. */
-@theme {
-  --color-ink-950: #0a0c10;
-  --color-ink-900: #10131a;
-  --color-ink-850: #151924;
-  --color-ink-800: #1b2030;
-  --color-ink-700: #272d3f;
-  --color-ink-600: #3a4257;
-  --color-ink-400: #7d87a1;
-  --color-ink-200: #c3cada;
-  --color-ink-50: #eef1f7;
+/* Patina (plans/dashboard-redesign.md): mineral grounds, oxide colours for
+   severity, verdigris for the agent. Both themes follow the system setting. */
+:root {
+  color-scheme: light dark;
 
-  --color-critical: #f0556d;
-  --color-high: #f58a42;
-  --color-medium: #e0b341;
-  --color-low: #7f93b8;
-  --color-unknown: #5b6478;
+  --ground: #ecefea;
+  --sheet: #f8f9f6;
+  --graphite: #1c2522;
+  --lichen: #5a6762;
+  --faint: #9aa59f;
+  --rule: #d3d9d4;
+  --verdigris: #1f7562;
+  --on-verdigris: #f8f9f6;
 
-  --color-accent: #6ba8ff;
-  --color-good: #4fc08d;
+  --critical: #b8322a;
+  --high: #c25e18;
+  --medium: #9a7e0c;
+  --low: #5f7484;
+  --unknown: #868c85;
+}
 
-  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #151d1a;
+    --sheet: #1c2622;
+    --graphite: #e4ebe6;
+    --lichen: #93a39c;
+    --faint: #5b6a64;
+    --rule: #2c3833;
+    --verdigris: #63c7ac;
+    --on-verdigris: #11201b;
+
+    --critical: #f0645a;
+    --high: #f2934b;
+    --medium: #e2c04a;
+    --low: #9ab0c0;
+    --unknown: #8f968f;
+  }
+}
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-sheet: var(--sheet);
+  --color-graphite: var(--graphite);
+  --color-lichen: var(--lichen);
+  --color-faint: var(--faint);
+  --color-rule: var(--rule);
+  --color-verdigris: var(--verdigris);
+  --color-on-verdigris: var(--on-verdigris);
+
+  --color-critical: var(--critical);
+  --color-high: var(--high);
+  --color-medium: var(--medium);
+  --color-low: var(--low);
+  --color-unknown: var(--unknown);
+
+  --font-sans: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Martian Mono Variable', ui-monospace, Menlo, monospace;
 }
 
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
 
 body {
-  background: var(--color-ink-950);
-  color: var(--color-ink-50);
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: var(--ground);
+  color: var(--graphite);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'tnum' 1;
 }
 
-/* A quiet scrollbar, so long tables do not shout. */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--color-ink-700);
-  border-radius: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
+:focus-visible {
+  outline: 2px solid var(--verdigris);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
-@keyframes pulse-ring {
-  0% {
-    box-shadow: 0 0 0 0 rgb(107 168 255 / 45%);
+::selection {
+  background: color-mix(in oklab, var(--verdigris) 30%, transparent);
+}
+
+/* The exposure strip drains when counts change; this is the page's one
+   orchestrated motion. */
+.strip-segment {
+  transition:
+    flex-grow 900ms cubic-bezier(0.65, 0, 0.35, 1),
+    margin 900ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+@keyframes crawl {
+  to {
+    background-position: 24px 0;
   }
-  70% {
-    box-shadow: 0 0 0 7px rgb(107 168 255 / 0%);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgb(107 168 255 / 0%);
-  }
 }
 
-.working-dot {
-  animation: pulse-ring 1.8s cubic-bezier(0.66, 0, 0, 1) infinite;
+.step-active {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--verdigris) 0 6px,
+    color-mix(in oklab, var(--verdigris) 45%, transparent) 6px 12px
+  );
+  background-size: 24px 100%;
+  animation: crawl 1.1s linear infinite;
 }
 
-@keyframes slide-in {
+@keyframes arrive {
   from {
     opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 
 .event-row {
-  animation: slide-in 220ms ease-out;
+  animation: arrive 240ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

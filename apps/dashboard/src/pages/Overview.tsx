@@ -4,10 +4,12 @@ import { Link } from 'react-router-dom'
 import {
   AgentStateBadge,
   Button,
-  Card,
-  CardHeader,
   Empty,
+  ExposureStrip,
+  Section,
   SeverityBadge,
+  Sheet,
+  StripLegend,
   relativeTime,
 } from '../components/primitives'
 import { useFixNow, useRepos, useScanNow } from '../hooks/useData'
@@ -31,6 +33,20 @@ agent:
   allow_major_bumps: false
 `
 
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`
+}
+
+function agentSentence(repos: Repo[]): string {
+  const working = repos.find((repo) => repo.agent_state === 'working')
+  if (working) return `The agent is working on ${working.full_name}.`
+  const scanning = repos.find((repo) => repo.agent_state === 'scanning')
+  if (scanning) return `The agent is scanning ${scanning.full_name}.`
+  const stuck = repos.find((repo) => repo.agent_state === 'error')
+  if (stuck) return `The agent is asleep. ${stuck.full_name} needs attention.`
+  return 'The agent is asleep.'
+}
+
 export function Overview() {
   const { data: repos = [], isLoading } = useRepos()
 
@@ -49,75 +65,80 @@ export function Overview() {
     return sum
   }, [repos])
 
+  const total = SEVERITIES.reduce((sum, severity) => sum + totals[severity], 0)
   const configured = repos.filter((repo) => repo.has_config)
   const unconfigured = repos.filter((repo) => !repo.has_config)
+  const where = `across ${plural(repos.length, 'repository', 'repositories')}`
 
   return (
-    <div className="space-y-6">
-      <section className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Open vulnerabilities</h1>
-          <p className="mt-1 text-sm text-ink-400">
-            Across {repos.length} linked {repos.length === 1 ? 'repository' : 'repositories'}
-          </p>
+    <div className="space-y-12">
+      <section>
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div>
+            <h1 className="text-[28px] leading-[1.05] font-[650] tracking-[-0.015em] font-stretch-[125%] sm:text-[40px]">
+              {total === 0 ? 'Nothing open' : plural(total, 'open vulnerability', 'open vulnerabilities')}{' '}
+              <span className="block">{where}</span>
+            </h1>
+            <p className="mt-3 text-[18px]">{agentSentence(repos)}</p>
+          </div>
+          <a
+            href={installUrl()}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded bg-verdigris px-3 py-1.5 text-[14px] font-semibold text-on-verdigris transition-colors hover:bg-verdigris/85"
+          >
+            Install GitHub App
+          </a>
         </div>
-        <a
-          href={installUrl()}
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-ink-950 transition-colors hover:bg-accent/85"
-        >
-          Install GitHub App
-        </a>
+
+        <div className="mt-8">
+          <ExposureStrip counts={totals} label="Open across all repositories" />
+          <StripLegend counts={totals} />
+        </div>
       </section>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {SEVERITIES.map((severity) => (
-          <Card key={severity} className="px-4 py-3">
-            <p className="font-mono text-2xl tabular-nums">{totals[severity]}</p>
-            <p className="mt-1 text-xs tracking-wide text-ink-400 uppercase">{severity}</p>
-          </Card>
-        ))}
-      </div>
-
-      <Card>
-        <CardHeader title="Repositories" />
-        {isLoading ? (
-          <Empty title="Loading…" />
-        ) : configured.length === 0 ? (
-          <Empty
-            title="No configured repositories yet"
-            hint="Install the GitHub App, then add a .vulnagent.yml to a repository."
-          />
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-ink-800 text-left text-xs tracking-wide text-ink-400 uppercase">
-                <th className="px-5 py-2.5 font-medium">Repository</th>
-                <th className="px-3 py-2.5 font-medium">Open</th>
-                <th className="px-3 py-2.5 font-medium">Agent</th>
-                <th className="px-3 py-2.5 font-medium">Last scan</th>
-                <th className="px-5 py-2.5" />
-              </tr>
-            </thead>
-            <tbody>
-              {configured.map((repo) => (
-                <RepoRow key={repo.id} repo={repo} />
-              ))}
-            </tbody>
-          </table>
-        )}
-      </Card>
+      <Section title="Repositories">
+        <Sheet>
+          {isLoading ? (
+            <Empty title="Loading…" />
+          ) : configured.length === 0 ? (
+            <Empty
+              title="No configured repositories yet"
+              hint="Install the GitHub App, then add a .vulnagent.yml to a repository."
+            />
+          ) : (
+            <table className="w-full min-w-[760px] text-left">
+              <thead>
+                <tr className="border-b border-rule text-[13px] text-lichen">
+                  <th className="px-5 py-2.5 font-medium">Repository</th>
+                  <th className="w-[26%] px-3 py-2.5 font-medium">Open</th>
+                  <th className="px-3 py-2.5 font-medium">Agent</th>
+                  <th className="px-3 py-2.5 font-medium">Last scan</th>
+                  <th className="px-5 py-2.5">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {configured.map((repo) => (
+                  <RepoRow key={repo.id} repo={repo} />
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Sheet>
+      </Section>
 
       {unconfigured.length > 0 && (
-        <Card>
-          <CardHeader title="Not configured" />
-          <div className="divide-y divide-ink-800">
-            {unconfigured.map((repo) => (
-              <UnconfiguredRow key={repo.id} repo={repo} />
-            ))}
-          </div>
-        </Card>
+        <Section title="Not configured">
+          <Sheet>
+            <div className="divide-y divide-rule">
+              {unconfigured.map((repo) => (
+                <UnconfiguredRow key={repo.id} repo={repo} />
+              ))}
+            </div>
+          </Sheet>
+        </Section>
       )}
     </div>
   )
@@ -131,41 +152,39 @@ function RepoRow({ repo }: { repo: Repo }) {
   const working = repo.agent_state === 'working' || repo.agent_state === 'scanning'
 
   return (
-    <tr className="border-b border-ink-800/60 last:border-0 hover:bg-ink-850/40">
-      <td className="px-5 py-3">
-        <Link to={`/repos/${repo.id}`} className="font-medium hover:text-accent">
+    <tr className="border-b border-rule last:border-0 hover:bg-ground/50">
+      <td className="px-5 py-3.5 align-top">
+        <Link to={`/repos/${repo.id}`} className="font-semibold hover:text-verdigris">
           {repo.full_name}
         </Link>
-        <div className="mt-1 flex items-center gap-1.5">
+        <div className="mt-1 flex items-center gap-2 text-[13px] text-lichen">
           {repo.ecosystems.map((ecosystem) => (
-            <span
-              key={ecosystem}
-              className="rounded bg-ink-800 px-1.5 py-0.5 font-mono text-[11px] text-ink-400"
-            >
-              {ecosystem}
-            </span>
+            <span key={ecosystem}>{ecosystem}</span>
           ))}
-          {repo.config_error && (
-            <span className="text-[11px] text-critical">config error</span>
-          )}
+          {repo.config_error && <span className="text-critical">config error</span>}
         </div>
       </td>
-      <td className="px-3 py-3">
+      <td className="px-3 py-3.5 align-top">
+        <div className="mt-2">
+          <ExposureStrip counts={counts} label={`Open in ${repo.full_name}`} size="small" />
+        </div>
         {total === 0 ? (
-          <span className="text-sm text-good">clear</span>
+          <span className="mt-1.5 block text-[13px] text-verdigris">clear</span>
         ) : (
-          <div className="flex flex-wrap gap-1">
+          <div className="mt-1.5 flex flex-wrap gap-x-3">
             {SEVERITIES.filter((severity) => counts[severity] > 0).map((severity) => (
               <SeverityBadge key={severity} severity={severity} count={counts[severity]} />
             ))}
           </div>
         )}
       </td>
-      <td className="px-3 py-3">
+      <td className="px-3 py-3.5 align-top">
         <AgentStateBadge state={repo.agent_state} />
       </td>
-      <td className="px-3 py-3 text-ink-400">{relativeTime(repo.last_scan_at)}</td>
-      <td className="px-5 py-3">
+      <td className="px-3 py-3.5 align-top text-[14px] text-lichen">
+        {relativeTime(repo.last_scan_at)}
+      </td>
+      <td className="px-5 py-3 align-top">
         <div className="flex justify-end gap-2">
           <Button onClick={() => scan.mutate(repo.id)} disabled={working}>
             Scan now
@@ -194,12 +213,12 @@ function UnconfiguredRow({ repo }: { repo: Repo }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
       <div>
-        <p className="font-medium">{repo.full_name}</p>
-        <p className="mt-0.5 text-sm text-ink-400">
-          Add a <code className="font-mono text-ink-200">.vulnagent.yml</code> to the repository
-          root to let the agent work on it.
+        <p className="font-semibold">{repo.full_name}</p>
+        <p className="mt-0.5 text-[14px] text-lichen">
+          Add a <code className="font-mono text-[12.5px] text-graphite">.vulnagent.yml</code> to
+          the repository root to let the agent work on it.
         </p>
       </div>
       <Button onClick={copy}>{copied ? 'Copied' : 'Copy sample config'}</Button>

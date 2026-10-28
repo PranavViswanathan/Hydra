@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import { Card } from '../components/primitives'
+import { Sheet } from '../components/primitives'
 import { api } from '../lib/api'
 
 /**
@@ -28,22 +28,22 @@ export function Setup() {
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
-      <Card className="px-8 py-10 text-center">
+      <Sheet className="px-8 py-10">
         {error ? (
           <>
-            <p className="text-sm text-critical">{error}</p>
+            <p className="text-critical">{error}</p>
             <button
               type="button"
               onClick={() => navigate('/')}
-              className="mt-4 text-sm text-accent hover:underline"
+              className="mt-4 text-[14px] text-verdigris hover:underline"
             >
               Back to repositories
             </button>
           </>
         ) : (
-          <p className="text-sm text-ink-200">Linking your installation…</p>
+          <p className="text-graphite">Linking your installation…</p>
         )}
-      </Card>
+      </Sheet>
     </div>
   )
 }
