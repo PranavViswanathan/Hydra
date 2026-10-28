@@ -119,6 +119,12 @@ describe('the repositories overview', () => {
     expect(await screen.findByRole('button', { name: 'Copy sample config' })).toBeVisible()
   })
 
+  it('brands the top bar as Hydra, linking home', async () => {
+    show()
+
+    expect(await screen.findByRole('link', { name: 'Hydra' })).toHaveAttribute('href', '/')
+  })
+
   it('marks the session as demo data when no project is configured', async () => {
     show()
 

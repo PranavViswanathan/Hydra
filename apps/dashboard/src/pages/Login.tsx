@@ -1,3 +1,4 @@
+import { HydraMark } from '../components/HydraMark'
 import { Button, ExposureStrip } from '../components/primitives'
 import { api } from '../lib/api'
 
@@ -7,8 +8,9 @@ export function Login() {
   return (
     <div className="flex min-h-screen items-center px-4 sm:px-6">
       <div className="mx-auto w-full max-w-[34rem]">
-        <h1 className="text-[40px] leading-none font-bold tracking-[-0.02em] font-stretch-[125%]">
-          VulnAgent
+        <HydraMark size={72} className="text-verdigris" />
+        <h1 className="mt-5 text-[40px] leading-none font-bold tracking-[-0.02em] font-stretch-[125%]">
+          Hydra
         </h1>
         <p className="mt-4 text-[18px] text-lichen">
           Finds vulnerable dependencies, opens the pull request that fixes them, and keeps

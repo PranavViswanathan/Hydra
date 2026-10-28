@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 
+import { HydraMark } from './components/HydraMark'
 import { Button } from './components/primitives'
 import { useLiveUpdates, useSession } from './hooks/useData'
 import { api } from './lib/api'
@@ -47,9 +48,10 @@ function TopBar({ name }: { name: string }) {
       <div className="mx-auto flex max-w-[1120px] items-center justify-between px-4 py-3 sm:px-6">
         <a
           href="/"
-          className="text-[17px] font-bold tracking-[-0.01em] font-stretch-[125%]"
+          className="flex items-center gap-2 text-[17px] font-bold tracking-[-0.01em] font-stretch-[125%]"
         >
-          VulnAgent
+          <HydraMark size={24} className="text-verdigris" />
+          Hydra
         </a>
         <div className="flex items-center gap-4">
           {api.demo && (
