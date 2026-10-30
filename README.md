@@ -1,11 +1,10 @@
-# VulnAgent
+# Hydra
 
 An autonomous dependency-security agent for GitHub repositories. It scans your
 dependency tree against OSV, opens one pull request that fixes what it can, and
 when CI breaks on the upgrade it reads the logs, recalls how a similar failure
 was fixed before, and pushes a patch. When the PR merges, it goes back to sleep.
 
-[![CI](https://github.com/pranav/hydra/actions/workflows/ci.yml/badge.svg)](.github/workflows/ci.yml)
 
 ```
 Dashboard shows 4 open vulns  →  Fix now  →  PR #42 opens  →  CI fails on a breaking change
