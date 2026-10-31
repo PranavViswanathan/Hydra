@@ -10,5 +10,6 @@ export default defineConfig({
     globals: false,
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    env: { VITE_APPWRITE_PROJECT_ID: '' },
   },
 })

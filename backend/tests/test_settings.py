@@ -16,7 +16,7 @@ PEM_ONE_LINE = "-----BEGIN RSA PRIVATE KEY-----\\nabc\\ndef\\n-----END RSA PRIVA
 
 
 def given_env(monkeypatch, **overrides: str | None):
-    for name in (*REQUIRED, *overrides):
+    for name in (*(field.upper() for field in Settings.model_fields), *overrides):
         monkeypatch.delenv(name, raising=False)
     for name, value in {**REQUIRED, **overrides}.items():
         if value is not None:
