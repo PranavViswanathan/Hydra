@@ -7,6 +7,9 @@ was fixed before, and pushes a patch. When the PR merges, it goes back to sleep.
 
 <img width="1422" height="802" alt="image" src="https://github.com/user-attachments/assets/7e7d3502-c271-415e-a8e0-3d13773ef3d1" />
 
+<img width="2010" height="1239" alt="image" src="https://github.com/user-attachments/assets/d1f52d92-7bbb-484b-a692-18605c17cf7d" />
+
+
 ```
 Dashboard shows 4 open vulns  →  Fix now  →  PR #42 opens  →  CI fails on a breaking change
        ↑                                                              ↓
