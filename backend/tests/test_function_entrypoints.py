@@ -101,3 +101,29 @@ def test_the_packaging_script_imports():
     module = load(SCRIPTS / "build_functions.py", "vulnagent_script_build_functions")
 
     assert callable(module.main)
+
+
+class TestPushingTheEnvironment:
+    push_env = load(SCRIPTS / "push_env.py", "vulnagent_script_push_env")
+
+    def test_sends_every_server_setting_that_has_a_value(self):
+        sent = self.push_env.variables_for({"APPWRITE_API_KEY": "k", "GITHUB_APP_ID": "1"})
+
+        assert sent["APPWRITE_API_KEY"] == "k"
+        assert sent["GITHUB_APP_ID"] == "1"
+
+    def test_leaves_out_settings_that_are_blank(self):
+        assert "LLM_API_KEY" not in self.push_env.variables_for({"LLM_API_KEY": ""})
+
+    def test_never_sends_the_dashboards_public_values(self):
+        sent = self.push_env.variables_for({"VITE_APPWRITE_PROJECT_ID": "p"})
+
+        assert not any(key.startswith("VITE_") for key in sent)
+
+    def test_never_sends_something_the_backend_does_not_read(self):
+        assert "UNRELATED" not in self.push_env.variables_for({"UNRELATED": "x"})
+
+    def test_points_the_backend_at_the_lockfile_function_when_unset(self):
+        sent = self.push_env.variables_for({"NPM_LOCKFILE_FUNCTION_ID": ""})
+
+        assert sent["NPM_LOCKFILE_FUNCTION_ID"] == "npm_lockfile"

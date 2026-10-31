@@ -168,6 +168,10 @@ bootstrap-vectors: $(BACKEND_DEPS) ## Create the VectorsDB store (M0 spike A)
 seed: $(BACKEND_DEPS) ## Seed the failure memory with known fixes
 	@$(UV) python scripts/seed_memory.py
 
+.PHONY: push-env
+push-env: $(BACKEND_DEPS) ## Copy the server settings from .env onto the hydra function
+	@$(UV) python scripts/push_env.py
+
 ##@ End-to-end testing
 
 .PHONY: reset

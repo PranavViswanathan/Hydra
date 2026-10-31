@@ -157,6 +157,12 @@ Environment variables are set per function in the Appwrite console, or with
 `appwrite functions create-variable`. They are not in the config file, because
 that file is committed.
 
+`make push-env` does it from `.env` in one step: it sends every server
+setting that has a value to `hydra` as a secret variable, updates the ones
+already there, never prints a value, and leaves the dashboard's `VITE_` values
+local. `NPM_LOCKFILE_FUNCTION_ID` defaults to `npm_lockfile`. Re-run it after
+rotating a key.
+
 | Function | Needs |
 |---|---|
 | `hydra` | Every server variable in [Configuration](configuration.md#environment-variables) (Appwrite, GitHub, `OSV_BASE_URL`, `LLM_*`, `EMBEDDING_*`) plus `NPM_LOCKFILE_FUNCTION_ID`. Not the `VITE_*` ones |
