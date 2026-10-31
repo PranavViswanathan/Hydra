@@ -27,6 +27,9 @@ SEVERITIES = ["low", "medium", "high", "critical", "unknown"]
 LONG = 1_000_000
 MEDIUM = 4096
 SHORT = 255
+PURL = 512
+OSV_ID = 128
+ROW_ID = 36
 
 
 @dataclass(frozen=True)
@@ -108,7 +111,7 @@ TABLES = [
         "scans",
         "Scans",
         [
-            text("repo_id", required=True),
+            text("repo_id", required=True, size=ROW_ID),
             enum("trigger", ["schedule", "push", "new_advisory", "manual"], required=True),
             enum("status", ["running", "succeeded", "failed"], required=True),
             text("commit_sha"),
@@ -124,8 +127,8 @@ TABLES = [
         "repo_packages",
         "Repository packages",
         [
-            text("repo_id", required=True),
-            text("purl", required=True, size=MEDIUM),
+            text("repo_id", required=True, size=ROW_ID),
+            text("purl", required=True, size=PURL),
             text("ecosystem", required=True),
             text("name", required=True),
             text("version", required=True),
@@ -139,9 +142,9 @@ TABLES = [
         "dependency_edges",
         "Dependency edges",
         [
-            text("repo_id", required=True),
-            text("parent_purl", required=True, size=MEDIUM),
-            text("child_purl", required=True, size=MEDIUM),
+            text("repo_id", required=True, size=ROW_ID),
+            text("parent_purl", required=True, size=PURL),
+            text("child_purl", required=True, size=PURL),
             text("requested_range"),
             text("ecosystem"),
             text("scan_id"),
@@ -152,7 +155,7 @@ TABLES = [
         "advisories",
         "Advisories",
         [
-            text("osv_id", required=True),
+            text("osv_id", required=True, size=OSV_ID),
             Column("aliases", "string", size=SHORT, array=True),
             text("summary", size=MEDIUM),
             text("details", size=LONG),
@@ -167,9 +170,9 @@ TABLES = [
         "vulnerabilities",
         "Vulnerabilities",
         [
-            text("repo_id", required=True),
-            text("osv_id", required=True),
-            text("purl", required=True, size=MEDIUM),
+            text("repo_id", required=True, size=ROW_ID),
+            text("osv_id", required=True, size=OSV_ID),
+            text("purl", required=True, size=PURL),
             text("package_name", required=True),
             text("installed_version", required=True),
             text("fixed_version"),
@@ -194,7 +197,7 @@ TABLES = [
         "agent_runs",
         "Agent runs",
         [
-            text("repo_id", required=True),
+            text("repo_id", required=True, size=ROW_ID),
             enum("trigger", ["auto", "manual"], required=True),
             text("state", required=True),
             Column("attempt", "integer"),
@@ -218,7 +221,7 @@ TABLES = [
         "Agent events",
         [
             text("run_id", required=True),
-            text("repo_id", required=True),
+            text("repo_id", required=True, size=ROW_ID),
             enum(
                 "type",
                 [
