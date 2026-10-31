@@ -7,6 +7,7 @@ export const config = {
   projectId: import.meta.env.VITE_APPWRITE_PROJECT_ID ?? '',
   apiFunctionId: import.meta.env.VITE_API_FUNCTION_ID ?? '',
   appSlug: import.meta.env.VITE_GITHUB_APP_SLUG ?? '',
+  demoBadge: import.meta.env.VITE_DEMO_BADGE !== 'off',
 }
 
 /**

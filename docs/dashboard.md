@@ -16,12 +16,16 @@ through Realtime.
 
 ```bash
 make demo     # dev server on http://localhost:5173
+make hackathon-demo # the same, opened in a browser, with a presenter walkthrough and no "demo data" badge
 make build-ui # production build into apps/dashboard/dist
 make test-ui  # 16 tests
 ```
 
 The build is about 246 KB, 79 KB gzipped. Any static host will serve it;
 Appwrite Sites is optional.
+
+Both demo targets blank `VITE_APPWRITE_PROJECT_ID` themselves, so they show demo
+data even from a shell that exports the real `.env`.
 
 ## Demo mode
 

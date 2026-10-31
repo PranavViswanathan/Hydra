@@ -4,6 +4,7 @@ import { HydraMark } from './components/HydraMark'
 import { Button } from './components/primitives'
 import { useLiveUpdates, useSession } from './hooks/useData'
 import { api } from './lib/api'
+import { config } from './lib/appwrite'
 import { Login } from './pages/Login'
 import { Overview } from './pages/Overview'
 import { RepoDetail } from './pages/RepoDetail'
@@ -54,7 +55,7 @@ function TopBar({ name }: { name: string }) {
           Hydra
         </a>
         <div className="flex items-center gap-4">
-          {api.demo && (
+          {api.demo && config.demoBadge && (
             <span
               className="rounded px-2 py-0.5 text-[12.5px] text-medium ring-1 ring-medium/50 ring-inset"
               title="No Appwrite project is configured, so this is demo data."

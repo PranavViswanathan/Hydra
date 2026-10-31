@@ -19,6 +19,7 @@ the code already follows.
 |---|---|
 | `make install` | Backend and dashboard dependencies |
 | `make demo` | Dashboard on demo data at :5173 |
+| `make hackathon-demo` | The demo opened in a browser, with a presenter walkthrough |
 | `make check` | Everything CI runs: lint, types, both test suites |
 | `make test-backend` | 667 Python tests, about a second |
 | `make test-ui` | 16 dashboard tests |

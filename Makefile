@@ -18,6 +18,10 @@ TEST_REPO ?= $(VULNAGENT_TEST_REPO)
 BACKEND_DEPS := $(BACKEND)/.venv/pyvenv.cfg
 DASHBOARD_DEPS := $(DASHBOARD)/node_modules/.package-lock.json
 
+# Demo targets blank the project id even when the shell exports .env, since
+# a project id is what switches the dashboard from demo data to Appwrite.
+DEMO_ENV := VITE_APPWRITE_PROJECT_ID= VITE_API_FUNCTION_ID= VITE_GITHUB_APP_SLUG=
+
 ##@ Getting started
 
 .PHONY: help
@@ -69,9 +73,25 @@ doctor: ## Check the toolchain and report what is missing
 
 .PHONY: demo
 demo: $(DASHBOARD_DEPS) ## Run the dashboard on demo data, no credentials needed
-	@echo "Starting the dashboard on http://localhost:5173 with demo data."
+	@echo "Starting the dashboard with demo data."
 	@echo "Press Fix now on vulnagent-test-app to watch a full agent run."
-	@$(NPM) run dev
+	@$(DEMO_ENV) $(NPM) run dev
+
+.PHONY: hackathon-demo
+hackathon-demo: $(DASHBOARD_DEPS) ## Open the demo in your browser with a presenter walkthrough
+	@echo ""
+	@echo "Hydra demo: sample data, no credentials, nothing leaves this machine."
+	@echo ""
+	@echo "  1. Overview: four repositories, the exposure strip shows open severity."
+	@echo "  2. Open pranav/vulnagent-test-app: a critical jsonwebtoken advisory,"
+	@echo "     high lodash and qs, medium minimist and semver."
+	@echo "  3. Press Fix now and narrate the run as it plays (about 17 seconds):"
+	@echo "     queued, plan, branch committed, PR #42 opened,"
+	@echo "     CI fails on jwt.sign, memory recalls a past fix (0.93),"
+	@echo "     patch pushed, CI passes, PR merged, 4 vulnerabilities fixed."
+	@echo "  4. Reload the page to reset and run it again."
+	@echo ""
+	@$(DEMO_ENV) VITE_DEMO_BADGE=off $(NPM) run dev -- --open
 
 .PHONY: dev
 dev: demo ## Alias for demo

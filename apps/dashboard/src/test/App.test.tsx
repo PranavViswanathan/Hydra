@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { App } from '../App'
 
@@ -209,5 +209,32 @@ describe('pressing Fix now', () => {
     await userEvent.click(within(row).getByRole('button', { name: 'Fix now' }))
 
     await waitFor(() => expect(within(row).getByText('Working')).toBeVisible())
+  })
+})
+
+describe('presenting the demo', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  it('can hide the demo data badge while still showing the demo data', async () => {
+    vi.stubEnv('VITE_DEMO_BADGE', 'off')
+    vi.resetModules()
+    const { App: PresentedApp } = await import('../App')
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 0 } },
+    })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <PresentedApp />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByRole('link', { name: 'pranav/vulnagent-test-app' })).toBeVisible()
+    expect(screen.queryByText('demo data')).not.toBeInTheDocument()
   })
 })
