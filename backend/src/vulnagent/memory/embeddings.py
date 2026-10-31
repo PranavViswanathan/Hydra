@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, Final, Protocol
 
 from vulnagent.core.errors import ConfigError
+from vulnagent.db.responses import plain
 
 MODEL_DIMENSIONS: Final[dict[str, int]] = {
     "all-minilm": 384,
@@ -37,10 +38,14 @@ class AppwriteEmbeddings:
         self.dimensions = MODEL_DIMENSIONS[model]
 
     def embed(self, text: str) -> list[float]:
-        response = self._embeddings.create_text_embeddings(texts=[text], model=self._model)
+        response = plain(self._embeddings.create_text_embeddings(texts=[text], model=self._model))
         vector = _first_vector(response)
-        if vector is None:
-            raise ConfigError(f"the embedding service returned nothing for model {self._model!r}")
+        if not vector:
+            reason = _first_error(response)
+            raise ConfigError(
+                f"the embedding service returned nothing for model {self._model!r}"
+                + (f": {reason}" if reason else "")
+            )
         if len(vector) != self.dimensions:
             raise ConfigError(
                 f"model {self._model!r} returned {len(vector)} dimensions, "
@@ -61,3 +66,10 @@ def _first_vector(response: Any) -> list[float] | None:
         return [float(value) for value in values]
     except (TypeError, ValueError):
         return None
+
+
+def _first_error(response: Any) -> str:
+    embeddings = response.get("embeddings") if isinstance(response, dict) else None
+    first = embeddings[0] if isinstance(embeddings, list) and embeddings else None
+    error = first.get("error") if isinstance(first, dict) else None
+    return error if isinstance(error, str) else ""

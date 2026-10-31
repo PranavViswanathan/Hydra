@@ -54,7 +54,7 @@ class TestRoundTripping:
 
     def test_appwrite_system_fields_do_not_leak_into_the_model(self, db, tables):
         created = db.repos.create(a_repo())
-        tables.tables["repos"][created.id]["$sequence"] = 7
+        tables.tables["repos"][created.id]["$sequence"] = "7"
 
         fetched = db.repos.get(created.id)
 

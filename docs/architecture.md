@@ -31,7 +31,7 @@ flowchart TB
             API["api<br/>HTTP, user JWT"]
             LOCK["npm_lockfile<br/>Node, sync"]
         end
-        TABLES[("TablesDB<br/>10 tables")]
+        TABLES[("TablesDB<br/>11 tables")]
         VECTORS[("VectorsDB<br/>ci_failures")]
         EMBED["Embeddings service"]
     end

@@ -12,6 +12,7 @@ from typing import Any, Final, Protocol
 from appwrite.query import Query
 
 from vulnagent.core.models import Severity
+from vulnagent.db.responses import plain
 from vulnagent.db.rows import (
     DATABASE_ID,
     AdvisoryRow,
@@ -117,7 +118,8 @@ class Table[TRow: Row]:
         found = self.find(queries, limit=1)
         return found[0] if found else None
 
-    def _parse(self, row: Any) -> TRow | None:
+    def _parse(self, response: Any) -> TRow | None:
+        row = plain(response)
         if not isinstance(row, dict) or not row:
             return None
         try:
@@ -294,7 +296,8 @@ class Database:
         self.deliveries = WebhookDeliveries(tables)
 
 
-def _rows_of(page: Any) -> list[dict[str, Any]]:
+def _rows_of(response: Any) -> list[dict[str, Any]]:
+    page = plain(response)
     if not isinstance(page, dict):
         return []
     rows = page.get("rows")

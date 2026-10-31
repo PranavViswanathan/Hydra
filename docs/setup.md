@@ -44,6 +44,12 @@ execution.write   users.read
 
 This key is the one every function uses. It never reaches the browser.
 
+Copy the project's **API Endpoint** from its Settings page too. Newer Appwrite
+Cloud projects are regional (`https://nyc.cloud.appwrite.io/v1` and so on),
+and the generic `https://cloud.appwrite.io/v1` answers them with "Project is
+not accessible in this region". It goes in both `APPWRITE_ENDPOINT` and
+`VITE_APPWRITE_ENDPOINT`.
+
 ## 2. The schema
 
 ```bash
@@ -54,10 +60,15 @@ make bootstrap
 
 That runs two scripts:
 
-**`bootstrap_db.py`** creates the database, ten tables, their columns and
-indexes. It is idempotent: anything already present is left alone, so re-run
-it after pulling a schema change. `make bootstrap-check` reports drift without
-touching anything.
+**`bootstrap_db.py`** creates the database, eleven tables, their columns and
+indexes. One of them, `ci_failures`, is the failure memory's TablesDB fallback.
+It is idempotent: anything already present is left alone, so re-run it after
+pulling a schema change. `make bootstrap-check` reports drift without touching
+anything.
+
+Being idempotent by existence, it never resizes a column that is already
+there. If a run fails partway on a fresh project, delete the `vulnagent`
+database in the console and run it again rather than patching columns.
 
 **`bootstrap_vectors.py`** creates the vector store. This is M0 spike A, and
 it is allowed to fail.

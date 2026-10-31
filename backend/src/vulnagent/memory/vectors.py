@@ -12,6 +12,7 @@ from typing import Any, Final, Protocol
 
 from appwrite.query import Query
 
+from vulnagent.db.responses import plain
 from vulnagent.memory.base import (
     COLLECTION,
     DEFAULT_THRESHOLD,
@@ -90,7 +91,8 @@ class VectorsDBMemory:
 
 
 def _rows(response: Any) -> list[dict[str, Any]]:
-    documents = response.get("documents") if isinstance(response, dict) else None
+    page = plain(response)
+    documents = page.get("documents") if isinstance(page, dict) else None
     if not isinstance(documents, list):
         return []
     return [row for row in documents if isinstance(row, dict)]

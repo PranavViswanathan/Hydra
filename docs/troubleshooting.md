@@ -18,6 +18,20 @@ hit them.
 Two things in this project have never executed against real infrastructure.
 Expect friction there first.
 
+### "Project is not accessible in this region"
+
+`APPWRITE_ENDPOINT` is the generic `https://cloud.appwrite.io/v1` but the
+project is regional. Copy the endpoint from the project's Settings page into
+`APPWRITE_ENDPOINT` and `VITE_APPWRITE_ENDPOINT`. See [Setup](setup.md#1-appwrite-project).
+
+### Rows are written but never read back
+
+The Appwrite server SDK returns pydantic models with a row's columns nested
+under `data`, not the plain JSON the service sends. Everything that reads a
+response passes it through `vulnagent.db.responses.plain` first. A new read
+that skips it sees nothing, without an error. The test fakes return the
+SDK's own models, so the suite catches this.
+
 ### `bootstrap_vectors.py` exits 2
 
 VectorsDB needs a dedicated database on your Appwrite plan. The script says so

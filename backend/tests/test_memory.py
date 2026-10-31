@@ -1,6 +1,8 @@
 import json
 
 import pytest
+from appwrite.models.document_list import DocumentList
+from appwrite.models.row_list import RowList
 
 from vulnagent.memory.base import FailureRecord, Hit, cosine_similarity
 from vulnagent.memory.tables import TablesDBMemory
@@ -35,7 +37,7 @@ class StubVectors:
 
     def create_query(self, database_id, collection_id, queries=None):
         self.queries.append(queries or [])
-        return {"documents": self.documents}
+        return DocumentList.with_data({"total": len(self.documents), "documents": self.documents})
 
 
 class StubTables:
@@ -48,7 +50,7 @@ class StubTables:
         return {"$id": row_id}
 
     def list_rows(self, database_id, table_id, queries=None):
-        return {"rows": self.rows}
+        return RowList.with_data({"total": len(self.rows), "rows": self.rows})
 
 
 def a_record(**overrides) -> FailureRecord:

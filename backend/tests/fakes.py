@@ -1,5 +1,8 @@
 """An in-memory stand-in for Appwrite TablesDB, good enough for the repositories.
 
+Rows come back as the SDK's own `Row` and `RowList` models, as they do from
+the real service, so code that only handles plain dicts fails here too.
+
 Supports the handful of query shapes the code actually sends: equal (scalar or
 list), lessThanEqual, limit, offset and ordering.
 """
@@ -8,6 +11,9 @@ from __future__ import annotations
 
 import json
 from typing import Any
+
+from appwrite.models.row import Row
+from appwrite.models.row_list import RowList
 
 
 class FakeTablesDB:
@@ -24,27 +30,28 @@ class FakeTablesDB:
             raise ConflictError(f"row {resolved} already exists in {table_id}")
         stored = {"$id": resolved, **data}
         rows[resolved] = stored
-        return dict(stored)
+        return Row.with_data(stored)
 
     def update_row(self, database_id, table_id, row_id, data=None, **_):
         rows = self.tables.setdefault(table_id, {})
         if row_id not in rows:
             raise KeyError(row_id)
         rows[row_id].update(data or {})
-        return dict(rows[row_id])
+        return Row.with_data(rows[row_id])
 
     def upsert_row(self, database_id, table_id, row_id, data=None, **_):
         rows = self.tables.setdefault(table_id, {})
         resolved = self._resolve_id(row_id)
         rows[resolved] = {"$id": resolved, **(rows.get(resolved) or {}), **(data or {})}
-        return dict(rows[resolved])
+        return Row.with_data(rows[resolved])
 
     def delete_row(self, database_id, table_id, row_id, **_):
         self.tables.setdefault(table_id, {}).pop(row_id, None)
         return {}
 
     def get_row(self, database_id, table_id, row_id, **_):
-        return dict(self.tables.get(table_id, {}).get(row_id) or {})
+        row = self.tables.get(table_id, {}).get(row_id)
+        return Row.with_data(row) if row else {}
 
     def list_rows(self, database_id, table_id, queries=None, **_):
         rows = list(self.tables.get(table_id, {}).values())
@@ -72,7 +79,7 @@ class FakeTablesDB:
             elif method == "offset":
                 offset = int(values[0])
 
-        return {"total": len(rows), "rows": [dict(row) for row in rows[offset : offset + limit]]}
+        return RowList.with_data({"total": len(rows), "rows": rows[offset : offset + limit]})
 
     # --- helpers ----------------------------------------------------------
 

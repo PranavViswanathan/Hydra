@@ -1,4 +1,5 @@
 import pytest
+from appwrite.models.embedding_list import EmbeddingList
 
 from vulnagent.core.errors import ConfigError
 from vulnagent.llm.anthropic_provider import AnthropicProvider
@@ -82,9 +83,21 @@ class TestAnthropicProvider:
         assert provider.complete(system="s", user="u") == ""
 
 
+def an_embedding_list(*vectors: list[float], error: str = "") -> EmbeddingList:
+    return EmbeddingList.model_validate(
+        {
+            "total": len(vectors),
+            "embeddings": [
+                {"model": "all-minilm", "dimension": len(v), "embedding": v, "error": error}
+                for v in vectors
+            ],
+        }
+    )
+
+
 class TestAppwriteEmbeddings:
-    def vector(self, size: int) -> dict:
-        return {"embeddings": [{"embedding": [0.1] * size}]}
+    def vector(self, size: int) -> EmbeddingList:
+        return an_embedding_list([0.1] * size)
 
     def test_knows_the_width_of_the_model_it_was_given(self):
         provider = AppwriteEmbeddings(embeddings=StubEmbeddingsService(), model="all-minilm")
@@ -127,6 +140,13 @@ class TestAppwriteEmbeddings:
         )
 
         with pytest.raises(ConfigError):
+            provider.embed("some error")
+
+    def test_reports_the_reason_appwrite_gives_for_an_empty_vector(self):
+        service = StubEmbeddingsService(an_embedding_list([], error="model is still loading"))
+        provider = AppwriteEmbeddings(embeddings=service, model="all-minilm")
+
+        with pytest.raises(ConfigError, match="model is still loading"):
             provider.embed("some error")
 
     def test_accepts_a_bare_list_of_numbers_as_well_as_a_wrapped_one(self):

@@ -22,6 +22,7 @@ from vulnagent.config.settings import Settings, load_settings
 from vulnagent.core.errors import ConfigError, VulnAgentError
 from vulnagent.core.models import FileMap
 from vulnagent.db.repositories import Database
+from vulnagent.db.responses import plain
 from vulnagent.db.rows import VECTORS_DATABASE_ID
 from vulnagent.github.auth import GitHubAppAuth
 from vulnagent.github.client import GitHubClient
@@ -143,7 +144,8 @@ def build_context(*, dotenv: str | None = None) -> Context:
     )
 
 
-def _response_body(execution: Any) -> dict[str, Any]:
+def _response_body(response: Any) -> dict[str, Any]:
+    execution = plain(response)
     raw = execution.get("responseBody") if isinstance(execution, dict) else None
     if not isinstance(raw, str) or not raw.strip():
         return {}

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any, Protocol
 
+from vulnagent.db.responses import plain
 from vulnagent.memory.base import (
     COLLECTION,
     DEFAULT_THRESHOLD,
@@ -104,7 +105,8 @@ class TablesDBMemory:
 
 
 def _rows(response: Any) -> list[dict[str, Any]]:
-    rows = response.get("rows") or response.get("documents") if isinstance(response, dict) else None
+    page = plain(response)
+    rows = page.get("rows") or page.get("documents") if isinstance(page, dict) else None
     if not isinstance(rows, list):
         return []
     return [row for row in rows if isinstance(row, dict)]

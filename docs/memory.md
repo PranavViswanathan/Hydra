@@ -161,7 +161,9 @@ The real one. `create_document` to write, `create_query` with
 The fallback, for the case where VectorsDB needs a dedicated database the
 project does not have. Embeddings are stored as JSON text in an ordinary
 column, and search is brute-force cosine over the rows for one ecosystem,
-capped at 1000 rows.
+capped at 1000 rows. Its `ci_failures` table lives in the main `vulnagent`
+database and `bootstrap_db.py` creates it, so the fallback works on a project
+that never got a vectors database.
 
 Pure Python rather than numpy: at this scale a comprehension is fast enough,
 and it keeps a large wheel out of every vendored function bundle.

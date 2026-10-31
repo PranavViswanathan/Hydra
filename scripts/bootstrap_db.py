@@ -22,6 +22,7 @@ from appwrite.services.tables_db import TablesDB
 
 from vulnagent.config.settings import load_settings
 from vulnagent.db.rows import DATABASE_ID
+from vulnagent.memory.base import COLLECTION, MAX_LOG_EXCERPT_BYTES
 
 SEVERITIES = ["low", "medium", "high", "critical", "unknown"]
 LONG = 1_000_000
@@ -253,6 +254,23 @@ TABLES = [
             Column("received_at", "datetime"),
         ],
         [Index("delivery_id", ["delivery_id"], unique=True)],
+    ),
+    TableSpec(
+        COLLECTION,
+        "CI failures (TablesDB fallback memory)",
+        [
+            text("embedding", required=True, size=LONG),
+            text("ecosystem", required=True),
+            text("error_signature", required=True, size=MEDIUM),
+            text("log_excerpt", size=MAX_LOG_EXCERPT_BYTES),
+            text("package_changes", size=MEDIUM),
+            text("fix_diff", size=LONG),
+            enum("outcome", ["success", "failed"], required=True),
+            text("repo_full_name"),
+            text("run_id"),
+            Column("created_at", "datetime"),
+        ],
+        [Index("ecosystem_outcome", ["ecosystem", "outcome"])],
     ),
 ]
 
