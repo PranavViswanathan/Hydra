@@ -6,6 +6,7 @@ between a webhook arriving and a pull request merging.
 - [The shape of the system](#the-shape-of-the-system)
 - [Layering](#layering)
 - [What runs where](#what-runs-where)
+- [One function, six handlers](#one-function-six-handlers)
 - [A run, end to end](#a-run-end-to-end)
 - [The four design principles](#the-four-design-principles)
 - [Where state lives](#where-state-lives)
@@ -23,12 +24,14 @@ flowchart TB
 
     subgraph AW["Appwrite project"]
         subgraph FN["Functions"]
-            WEBHOOK["github_webhook<br/>HTTP, public"]
-            SCHED["scheduler<br/>cron */15"]
-            SCAN["scan_repo<br/>async"]
-            STEP["agent_step<br/>async"]
-            VULNEV["on_vuln_created<br/>DB event"]
-            API["api<br/>HTTP, user JWT"]
+            subgraph HYDRA["hydra (Python, one function)"]
+                WEBHOOK["github_webhook<br/>HTTP, public"]
+                SCHED["scheduler<br/>every 60 min"]
+                SCAN["scan<br/>signed task"]
+                STEP["agent_step<br/>signed task"]
+                VULNEV["vulnerability_created<br/>DB event"]
+                API["api<br/>HTTP, user JWT"]
+            end
             LOCK["npm_lockfile<br/>Node, sync"]
         end
         TABLES[("TablesDB<br/>11 tables")]
@@ -66,6 +69,11 @@ flowchart TB
 Nothing polls GitHub. Every transition is driven by a webhook, a cron tick, a
 database event, or a dashboard button.
 
+The six Python handlers are one Appwrite function, `hydra`, because the free
+plan allows only two functions. An arrow between two handlers inside `hydra`
+is the function executing itself asynchronously on a signed task path; see
+[One function, six handlers](#one-function-six-handlers).
+
 ## Layering
 
 The dependency arrows all point one way. Nothing in `core/` imports Appwrite,
@@ -73,7 +81,7 @@ GitHub or httpx, which is why most of the system can be tested without them.
 
 ```mermaid
 flowchart TD
-    FUNCTIONS["functions/*/src/main.py<br/><i>parse the request, call the core, return</i>"]
+    FUNCTIONS["entrypoints/<br/><i>route the call, parse it, call the core, return</i>"]
     RUNTIME["runtime.py<br/><i>composition root</i>"]
     SERVICES["services/<br/><i>triggers, installation sync, linking</i>"]
     AGENT["agent/ · scanning/<br/><i>orchestration</i>"]
@@ -99,26 +107,72 @@ flowchart TD
 | `db/`, `github/`, `osv/`, `memory/`, `llm/` | One module per external system, behind a protocol | Each is swappable and stubbable |
 | `agent/`, `scanning/` | Orchestration only, no vendor calls of their own | Decisions stay separable from effects |
 | `services/` | The decisions a function would otherwise inline | Trigger logic is unit-tested, not deploy-tested |
-| `functions/` | Parse, delegate, return | Nothing worth testing lives in a file you cannot import |
+| `entrypoints/` | Route, parse, delegate, return | Nothing worth testing lives in a file you cannot import |
 
 The one rule with teeth: **no raw Appwrite SDK call exists outside `db/` and
 `memory/`**. Everything else works with the typed models in `db/rows.py`.
 
 ## What runs where
 
-| Function | Trigger | Timeout | Does |
-|---|---|---|---|
-| `github_webhook` | HTTP, public | 30s | Verify the signature, claim the delivery, route, return |
-| `scheduler` | cron `*/15 * * * *` | 120s | Find repos whose `next_scan_at` has passed, enqueue scans |
-| `scan_repo` | async execution | 900s | Manifests to findings to rows to counts |
-| `agent_step` | async execution | 900s | Advance one run by exactly one transition |
-| `on_vuln_created` | DB row-create event | 30s | Maybe start a run for a newly discovered advisory |
-| `api` | HTTP, user JWT | 30s | Dashboard actions: link, scan now, fix now |
-| `npm_lockfile` | sync execution (Node) | 300s | `npm install --package-lock-only --ignore-scripts` |
+Two Appwrite functions. `hydra` (Python, 900s timeout) holds six handlers in
+`backend/src/vulnagent/entrypoints/`; `npm_lockfile` (Node, 300s) is the
+lockfile helper.
 
-`github_webhook` never does real work itself. It returns inside its 30 seconds
-and hands everything heavier to an async execution, because GitHub will retry a
+| Handler | Module | Reached by | Does |
+|---|---|---|---|
+| `github_webhook` | `github_webhook.py` | HTTP, public | Verify the signature, claim the delivery, route, return |
+| `scheduler` | `scheduler.py` | 60-minute interval | Find repos whose `next_scan_at` has passed, enqueue scans |
+| `scan` | `scan.py` | signed task, `/tasks/scan` | Manifests to findings to rows to counts |
+| `agent_step` | `agent_step.py` | signed task, `/tasks/agent-step` | Advance one run by exactly one transition |
+| `vulnerability_created` | `vulnerability_created.py` | DB row-create event | Maybe start a run for a newly discovered advisory |
+| `api` | `api.py` | HTTP, user JWT | Dashboard actions: link, scan now, fix now |
+| `npm_lockfile` | separate Node function | sync execution | `npm install --package-lock-only --ignore-scripts` |
+
+`github_webhook` never does real work itself. It returns quickly and hands
+everything heavier to a signed async task, because GitHub will retry a
 delivery that takes too long.
+
+## One function, six handlers
+
+`backend/functions/hydra/src/main.py` re-exports
+`vulnagent.entrypoints.main.main`, which asks `routing.destination()` which
+handler a call belongs to, checked in this order:
+
+| Call | Recognised by | Handler |
+|---|---|---|
+| 60-minute interval | `x-appwrite-trigger: schedule` | `scheduler` |
+| DB event `databases.vulnagent.tables.vulnerabilities.rows.*.create` | `x-appwrite-trigger: event` | `vulnerability_created` |
+| Internal task | path `/tasks/scan` or `/tasks/agent-step` with a valid `x-hydra-signature` | `scan` / `agent_step` |
+| GitHub | an `x-github-event` header | `github_webhook` |
+| Anything else | | `api` (user JWT) |
+
+A task path without a valid signature gets 403.
+
+```mermaid
+flowchart LR
+    IN["call to hydra"] --> R{"routing.destination()"}
+    R -->|schedule| SCHED["scheduler"]
+    R -->|event| VULN["vulnerability_created"]
+    R -->|"/tasks/*, signed"| TASK["scan / agent_step"]
+    R -->|"/tasks/*, unsigned"| F["403"]
+    R -->|x-github-event| WH["github_webhook"]
+    R -->|otherwise| API["api"]
+    SCHED & VULN & WH & API & TASK -. "TaskQueue.enqueue" .-> IN
+```
+
+### Why tasks are signed
+
+Hand-offs between handlers (`app.enqueue("scan", ...)`,
+`app.enqueue("agent_step", ...)`) go through `entrypoints/tasks.py`
+`TaskQueue`, which queues an async execution of the same function
+(`APPWRITE_FUNCTION_ID`, injected by Appwrite, default `hydra`) on the task
+path. The function must be executable by `any` so GitHub can reach it, so
+anyone can call `/tasks/agent-step`. The path alone proves nothing.
+
+Each task body is therefore signed with HMAC-SHA256 keyed with
+`APPWRITE_API_KEY`, sent as `x-hydra-signature: sha256=<hex>` (the same format
+as GitHub's `X-Hub-Signature-256`). Only the deployment holds that key. An
+empty key refuses every task.
 
 ## A run, end to end
 
@@ -135,7 +189,7 @@ sequenceDiagram
     participant L as LLM
 
     D->>API: POST /repos/{id}/fix
-    API->>S: async execution (QUEUED)
+    API->>S: signed async task (QUEUED)
 
     Note over S: QUEUED
     S->>S: select open vulns above the threshold with a known fix
@@ -180,7 +234,7 @@ sequenceDiagram
     Note over S: COMPLETED — the repo goes back to sleep
 ```
 
-Each numbered step above is a separate function execution wherever an arrow
+Each numbered step above is a separate execution of `hydra` wherever an arrow
 leaves the diagram and comes back. Nothing waits in memory for GitHub.
 
 ## The four design principles

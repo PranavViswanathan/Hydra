@@ -18,7 +18,7 @@ the dashboard and the work the agent picks up, comes from its output.
 
 ```mermaid
 flowchart TD
-    A["scan_repo invoked<br/>repo_id, trigger"] --> B["create a scans row<br/>status: running"]
+    A["scan task invoked<br/>repo_id, trigger"] --> B["create a scans row<br/>status: running"]
     B --> C["read the default branch head sha"]
     C --> D["list the repository root"]
     D --> E{"any adapter<br/>detects its files?"}

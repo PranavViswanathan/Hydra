@@ -1,0 +1,10 @@
+appwrite==26.0.0
+httpx==0.28.1
+pydantic==2.14.1
+pydantic-settings==2.16.1
+PyYAML==6.0.3
+node-semver==0.9.1
+croniter==6.2.4
+cvss==3.6
+PyJWT[crypto]==2.15.1
+anthropic==2.1.0

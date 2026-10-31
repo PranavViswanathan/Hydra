@@ -163,18 +163,21 @@ destination is terminal.
 
 ```mermaid
 flowchart LR
-    CRON["scheduler<br/>cron */15"] -->|next_scan_at passed| SCAN["scan_repo"]
+    CRON["scheduler<br/>every 60 min"] -->|next_scan_at passed| SCAN["scan"]
     PUSH["push webhook"] -->|a manifest changed<br/>and scan.on_push| SCAN
     SCAN -->|new vulns above threshold<br/>and agent.auto_start| RUN["new agent_run"]
-    ADV["on_vuln_created"] -->|scan.on_new_advisory<br/>debounced 5 min| RUN
+    ADV["vulnerability_created"] -->|scan.on_new_advisory<br/>debounced 5 min| RUN
     FIX["Fix now"] --> RUN
     RUN --> STEP["agent_step"]
     CI["workflow_run /<br/>check_suite"] --> STEP
     PRC["pull_request.closed"] --> STEP
 ```
 
+All of these are handlers inside the one `hydra` function, handing off to each
+other as signed async tasks (see
+[One function, six handlers](architecture.md#one-function-six-handlers)).
 Each of those decisions lives in `services/triggers.py` rather than inside a
-function entry point, so each is unit-tested: whether a push touched a manifest,
+handler, so each is unit-tested: whether a push touched a manifest,
 when the next scheduled scan is due, whether a scan's findings justify starting
 a run, and whether a CI result belongs to this run at all.
 

@@ -24,6 +24,7 @@ from vulnagent.core.models import FileMap
 from vulnagent.db.repositories import Database
 from vulnagent.db.responses import plain
 from vulnagent.db.rows import VECTORS_DATABASE_ID
+from vulnagent.entrypoints.tasks import Task, TaskQueue, own_function_id
 from vulnagent.github.auth import GitHubAppAuth
 from vulnagent.github.client import GitHubClient
 from vulnagent.llm.anthropic_provider import AnthropicProvider
@@ -83,11 +84,13 @@ class Context:
             function_id=self.settings.require_npm_lockfile_function_id(),
         )
 
-    def enqueue(self, function_id: str, payload: dict[str, Any]) -> None:
-        """Hand work to another function and return; webhooks must stay fast."""
-        self.functions.create_execution(
-            function_id=function_id, body=json.dumps(payload), xasync=True
-        )
+    def enqueue(self, task: Task, payload: dict[str, Any]) -> None:
+        """Hand work to an async execution and return; webhooks must stay fast."""
+        TaskQueue(
+            functions=self.functions,
+            function_id=own_function_id(),
+            key=self.settings.appwrite_api_key.get_secret_value().encode(),
+        ).enqueue(task, payload)
 
     def close(self) -> None:
         self.http.close()

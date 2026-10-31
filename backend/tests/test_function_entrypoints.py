@@ -13,14 +13,7 @@ import pytest
 FUNCTIONS = Path(__file__).resolve().parent.parent / "functions"
 SCRIPTS = Path(__file__).resolve().parent.parent.parent / "scripts"
 
-EXPECTED = [
-    "github_webhook",
-    "scheduler",
-    "scan_repo",
-    "agent_step",
-    "on_vuln_created",
-    "api",
-]
+EXPECTED = ["hydra"]
 
 
 def load(path: Path, name: str):
@@ -49,6 +42,43 @@ def test_the_function_declares_its_dependencies(function):
     requirements = (FUNCTIONS / function / "requirements.txt").read_text()
 
     assert "appwrite" in requirements
+
+
+@pytest.mark.parametrize("function", EXPECTED)
+def test_the_function_installs_exactly_the_versions_the_tests_ran_against(function):
+    import re
+    import tomllib
+
+    lock = tomllib.loads((Path(__file__).resolve().parents[2] / "uv.lock").read_text())
+    locked = {package["name"]: package["version"] for package in lock["package"]}
+    lines = (FUNCTIONS / function / "requirements.txt").read_text().splitlines()
+    requirements = [line for line in lines if line.strip() and not line.startswith("#")]
+
+    pins = {
+        re.sub(r"\[.*\]", "", name).lower(): version
+        for name, _, version in (line.partition("==") for line in requirements)
+    }
+
+    project = tomllib.loads((FUNCTIONS.parent / "pyproject.toml").read_text())
+    declared = {
+        re.split(r"[\[<>=]", dependency, maxsplit=1)[0].lower()
+        for dependency in project["project"]["dependencies"]
+    }
+
+    assert pins == {name: locked[name] for name in declared}
+    assert all("==" in line for line in requirements)
+
+
+def test_every_destination_has_a_handler():
+    from typing import get_args
+
+    from vulnagent.entrypoints.main import HANDLERS
+    from vulnagent.entrypoints.routing import Destination
+    from vulnagent.entrypoints.tasks import Task
+
+    routed = {*get_args(Task.__value__), *get_args(get_args(Destination.__value__)[1])}
+
+    assert set(HANDLERS) == routed - {"forbidden"}
 
 
 def test_every_function_folder_is_accounted_for():

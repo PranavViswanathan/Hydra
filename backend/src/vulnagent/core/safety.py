@@ -112,12 +112,16 @@ def capped_retries(configured: int) -> int:
     return max(0, min(configured, MAX_RETRY_CEILING))
 
 
+def sign_body(body: bytes, secret: bytes) -> str:
+    """The `sha256=<hex>` signature GitHub sends, used for internal tasks too."""
+    return "sha256=" + hmac.new(secret, body, hashlib.sha256).hexdigest()
+
+
 def verify_webhook_signature(body: bytes, header: str | None, secret: bytes) -> bool:
     """Rule 9: constant-time check of `X-Hub-Signature-256` before anything else."""
-    if not header or not header.startswith("sha256="):
+    if not header or not header.startswith("sha256=") or not secret:
         return False
-    expected = hmac.new(secret, body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(header[len("sha256=") :], expected)
+    return hmac.compare_digest(header, sign_body(body, secret))
 
 
 def _check_path(path: str, adapter: EcosystemAdapter) -> SafetyReport | None:

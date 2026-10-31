@@ -8,7 +8,6 @@ scan's findings justify starting a run.
 from __future__ import annotations
 
 import datetime as dt
-import os
 from typing import Any, Final, Protocol
 
 from croniter import croniter
@@ -18,6 +17,7 @@ from vulnagent.config.schema import RepoConfig, parse_repo_config
 from vulnagent.core.models import meets_threshold
 from vulnagent.db.repositories import Database
 from vulnagent.db.rows import AgentRun, Repo, RunTrigger
+from vulnagent.entrypoints.tasks import Task
 from vulnagent.github.webhooks import CiCompleted, PullRequestClosed, PushToDefaultBranch
 
 DEBOUNCE: Final = dt.timedelta(minutes=5)
@@ -26,15 +26,7 @@ DEBOUNCE: Final = dt.timedelta(minutes=5)
 class HasDb(Protocol):
     db: Database
 
-    def enqueue(self, function_id: str, payload: dict[str, Any]) -> None: ...
-
-
-def scan_function_id() -> str:
-    return os.environ.get("SCAN_REPO_FUNCTION_ID", "scan_repo")
-
-
-def agent_step_function_id() -> str:
-    return os.environ.get("AGENT_STEP_FUNCTION_ID", "agent_step")
+    def enqueue(self, task: Task, payload: dict[str, Any]) -> None: ...
 
 
 def config_of(repo: Repo) -> RepoConfig:
@@ -80,7 +72,7 @@ def start_agent_run(app: HasDb, repo: Repo, *, trigger: RunTrigger) -> AgentRun:
         event_type="state_change",
         message=f"run queued ({trigger})",
     )
-    app.enqueue(agent_step_function_id(), {"run_id": run.id, "expected_state": "QUEUED"})
+    app.enqueue("agent_step", {"run_id": run.id, "expected_state": "QUEUED"})
     return run
 
 
@@ -99,7 +91,7 @@ def start_scan(app: HasDb, push: PushToDefaultBranch) -> bool:
         return False
     if not config_of(repo).scan.on_push:
         return False
-    app.enqueue(scan_function_id(), {"repo_id": repo.id, "trigger": "push"})
+    app.enqueue("scan", {"repo_id": repo.id, "trigger": "push"})
     return True
 
 
@@ -114,7 +106,7 @@ def wake_agent_for_ci(app: HasDb, result: CiCompleted) -> bool:
         return False
 
     app.enqueue(
-        agent_step_function_id(),
+        "agent_step",
         {
             "run_id": run.id,
             "expected_state": "AWAITING_CI",
@@ -134,7 +126,7 @@ def wake_agent_for_closed_pr(app: HasDb, closed: PullRequestClosed) -> bool:
         return False
 
     app.enqueue(
-        agent_step_function_id(),
+        "agent_step",
         {
             "run_id": run.id,
             "expected_state": run.state,

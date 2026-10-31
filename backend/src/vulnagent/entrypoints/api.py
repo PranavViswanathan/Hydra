@@ -7,12 +7,13 @@ from typing import Any
 from appwrite.client import Client
 from appwrite.services.account import Account
 
+from vulnagent.db.responses import plain
 from vulnagent.runtime import build_context
 from vulnagent.services.linking import link_installation
-from vulnagent.services.triggers import scan_function_id, start_agent_run
+from vulnagent.services.triggers import start_agent_run
 
 
-def main(context: Any) -> Any:
+def handle(context: Any) -> Any:
     app = build_context()
     try:
         user_id = _user_id(app, context)
@@ -38,7 +39,7 @@ def main(context: Any) -> Any:
                 return context.res.json({"error": "not found"}, 404)
 
             if parts[2] == "scan":
-                app.enqueue(scan_function_id(), {"repo_id": repo.id, "trigger": "manual"})
+                app.enqueue("scan", {"repo_id": repo.id, "trigger": "manual"})
                 return context.res.json({"status": "scanning"})
 
             if parts[2] == "fix":
@@ -68,6 +69,8 @@ def _user_id(app: Any, context: Any) -> str | None:
             .set_project(app.settings.appwrite_project_id)
             .set_jwt(jwt)
         )
-        return str(account.get()["$id"])
+        user = plain(account.get())
     except Exception:
         return None
+    user_id = user.get("$id") if isinstance(user, dict) else None
+    return str(user_id) if user_id else None

@@ -90,10 +90,10 @@ column lists.
 |---|---|---|
 | `installations` | Upserted on webhook, deleted on uninstall | `github_webhook` |
 | `repos` | Upserted on webhook, updated constantly | webhook, scan, agent |
-| `scans` | Append-only audit record | `scan_repo` |
-| `repo_packages` | **Snapshot**, deleted and rewritten each scan | `scan_repo` |
-| `dependency_edges` | **Snapshot**, deleted and rewritten each scan | `scan_repo` |
-| `advisories` | **Global cache**, shared across repositories | `scan_repo` |
+| `scans` | Append-only audit record | `scan` |
+| `repo_packages` | **Snapshot**, deleted and rewritten each scan | `scan` |
+| `dependency_edges` | **Snapshot**, deleted and rewritten each scan | `scan` |
+| `advisories` | **Global cache**, shared across repositories | `scan` |
 | `vulnerabilities` | **Reconciled**, status carries meaning over time | scan, agent |
 | `agent_runs` | One per run, state mutates until terminal | `agent_step` |
 | `agent_events` | Append-only timeline | `agent_step` |
@@ -304,8 +304,8 @@ Indexed `hnsw_cosine` on `embedding`. See [Failure memory](memory.md).
 | `dependency_edges` | via its repo | never |
 | everything else | no | never |
 
-Every write goes through a function holding the server API key. The dashboard's
-three actions, link, scan and fix, go through the `api` function, which
+Every write goes through a handler holding the server API key. The dashboard's
+three actions, link, scan and fix, go through the `api` handler, which
 verifies the caller's JWT and checks `owner_user_id` before doing anything.
 
 ## Working with rows in code

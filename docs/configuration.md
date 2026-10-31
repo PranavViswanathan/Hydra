@@ -147,7 +147,7 @@ are excluded from the counts and never picked up by a run.
 |---|---|---|
 | `APPWRITE_ENDPOINT` | yes | `https://cloud.appwrite.io/v1` unless self-hosting |
 | `APPWRITE_PROJECT_ID` | yes | |
-| `APPWRITE_API_KEY` | yes | Server key; scopes in [setup](setup.md) |
+| `APPWRITE_API_KEY` | yes | Server key; scopes in [setup](setup.md). Also signs internal tasks: empty means every task is refused |
 
 ### GitHub
 
@@ -179,8 +179,10 @@ are excluded from the counts and never picked up by a run.
 |---|---|---|
 | `OSV_BASE_URL` | no | Defaults to `https://api.osv.dev`; point at a mirror if you have one |
 | `NPM_LOCKFILE_FUNCTION_ID` | for patching | The deployed Node function's id |
-| `SCAN_REPO_FUNCTION_ID` | no | Defaults to `scan_repo` |
-| `AGENT_STEP_FUNCTION_ID` | no | Defaults to `agent_step` |
+
+Internal tasks go to the function named by `APPWRITE_FUNCTION_ID`, which
+Appwrite injects into every execution (default `hydra`). There is nothing to
+set.
 
 ### Dashboard (public values only)
 
@@ -188,7 +190,7 @@ are excluded from the counts and never picked up by a run.
 |---|---|
 | `VITE_APPWRITE_ENDPOINT` | |
 | `VITE_APPWRITE_PROJECT_ID` | **Empty means demo mode** |
-| `VITE_API_FUNCTION_ID` | |
+| `VITE_API_FUNCTION_ID` | `hydra`, the function whose `api` handler serves the dashboard |
 | `VITE_GITHUB_APP_SLUG` | |
 
 ## What is required to boot

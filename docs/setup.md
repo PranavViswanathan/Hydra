@@ -111,7 +111,7 @@ Workflow run · Check suite
 
 | Setting | Value |
 |---|---|
-| Webhook URL | `github_webhook`'s domain, which does not exist yet — see step 6 |
+| Webhook URL | The `hydra` function's domain, which does not exist yet (see step 6) |
 | Webhook secret | Something long and random; it goes in `GITHUB_WEBHOOK_SECRET` |
 | Setup URL | `<dashboard>/setup`, with "Redirect on update" enabled |
 
@@ -152,21 +152,20 @@ make doctor   # confirms what is still blank
 make deploy
 ```
 
-Runs the checks, vendors the shared package into each function, and pushes.
+Runs the checks, vendors the shared package into the `hydra` function, and
+pushes both functions (`hydra` and `npm_lockfile`).
 Fill in `projectId` in `appwrite.config.json` before the first push.
 
-Then set each function's environment variables in the Appwrite console. The
-per-function list is in [Deployment](deployment.md#deploying); `agent_step`
-needs all of them, the others need a subset.
+Then set `hydra`'s environment variables in the Appwrite console. It runs
+every handler, so it needs every server variable from `.env` (see
+[Deployment](deployment.md#deploying)). `npm_lockfile` needs none.
 
 ## 6. Close the loop
 
-Now that the functions exist, `github_webhook` has a domain. Copy it into the
+Now that the functions exist, `hydra` has a domain. Copy it into the
 GitHub App's **Webhook URL** field.
 
-Set `NPM_LOCKFILE_FUNCTION_ID` to the deployed Node function's id, and
-`SCAN_REPO_FUNCTION_ID` / `AGENT_STEP_FUNCTION_ID` if your function ids differ
-from the defaults (`scan_repo`, `agent_step`).
+Set `NPM_LOCKFILE_FUNCTION_ID` on `hydra` to the deployed Node function's id.
 
 ## 7. Dashboard
 
@@ -175,7 +174,7 @@ Add the public values to `.env`:
 ```bash
 VITE_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
 VITE_APPWRITE_PROJECT_ID=your-project-id
-VITE_API_FUNCTION_ID=api
+VITE_API_FUNCTION_ID=hydra
 VITE_GITHUB_APP_SLUG=your-app-slug
 ```
 

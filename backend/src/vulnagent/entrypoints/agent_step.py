@@ -6,10 +6,9 @@ from typing import Any
 
 from vulnagent.agent.steps import AgentSteps
 from vulnagent.runtime import build_context
-from vulnagent.services.triggers import agent_step_function_id
 
 
-def main(context: Any) -> Any:
+def handle(context: Any) -> Any:
     payload = context.req.body_json or {}
     run_id = str(payload.get("run_id", ""))
     expected_state = payload.get("expected_state")
@@ -27,9 +26,7 @@ def main(context: Any) -> Any:
             return context.res.json({"status": "stale"})
 
         repo = app.db.repos.get(run.repo_id)
-        installation = (
-            app.db.installations.get(repo.installation_id) if repo is not None else None
-        )
+        installation = app.db.installations.get(repo.installation_id) if repo is not None else None
         if repo is None or installation is None:
             return context.res.json({"error": "the repository or installation is gone"}, 409)
 
@@ -45,10 +42,7 @@ def main(context: Any) -> Any:
         context.log(f"run {run_id} -> {outcome.state}")
 
         if outcome.reschedule:
-            app.enqueue(
-                agent_step_function_id(),
-                {"run_id": run_id, "expected_state": outcome.state},
-            )
+            app.enqueue("agent_step", {"run_id": run_id, "expected_state": outcome.state})
 
         return context.res.json({"state": outcome.state, "message": outcome.message})
     finally:

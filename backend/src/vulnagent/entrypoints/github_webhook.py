@@ -27,7 +27,7 @@ from vulnagent.services.triggers import (
 )
 
 
-def main(context: Any) -> Any:
+def handle(context: Any) -> Any:
     body = context.req.body_binary or b""
     signature = context.req.headers.get("x-hub-signature-256")
     secret = os.environ.get("GITHUB_WEBHOOK_SECRET", "").encode()

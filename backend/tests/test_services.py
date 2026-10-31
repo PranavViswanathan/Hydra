@@ -46,8 +46,8 @@ class FakeApp:
         self._github = github or FakeGitHub()
         self.http = httpx.Client()
 
-    def enqueue(self, function_id, payload):
-        self.queued.append((function_id, payload))
+    def enqueue(self, task, payload):
+        self.queued.append((task, payload))
 
     def github_for(self, installation_id):
         return self._github
@@ -150,6 +150,13 @@ class TestPushTriggers:
         assert start_scan(app, self.push(["package.json"])) is True
         assert app.queued[0][1]["trigger"] == "push"
 
+    def test_the_scan_is_queued_as_a_scan_task(self, app):
+        a_repo(app)
+
+        start_scan(app, self.push(["package.json"]))
+
+        assert app.queued[0][0] == "scan"
+
     def test_a_source_only_push_queues_nothing(self, app):
         a_repo(app)
 
@@ -181,6 +188,15 @@ class TestCiTriggers:
 
         assert wake_agent_for_ci(app, self.ci()) is True
         assert app.queued[0][1]["event"] == "ci_failed"
+
+    def test_waking_the_agent_queues_an_agent_step_task(self, app):
+        repo = a_repo(app)
+        run = app.db.runs.create(AgentRun(repo_id=repo.id, state="AWAITING_CI", head_sha="sha1"))
+        app.db.repos.start_run(repo.id, run.id)
+
+        wake_agent_for_ci(app, self.ci())
+
+        assert app.queued[0][0] == "agent_step"
 
     def test_a_pass_wakes_the_agent_with_the_other_event(self, app):
         repo = a_repo(app)

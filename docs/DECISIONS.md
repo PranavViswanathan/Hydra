@@ -140,6 +140,31 @@ used are the ones named in §4.3 and §9.3.
 outside `vulnagent/*`. Putting the check at the boundary rather than in the
 calling step means no future caller can forget it.
 
+## 2026-10-30
+
+### Six Python functions merged into one, `hydra`
+
+Appwrite's free plan allows two functions. `github_webhook`, `scheduler`,
+`scan_repo`, `agent_step`, `on_vuln_created` and `api` became handlers in
+`vulnagent/entrypoints/`, behind one function that routes each call by trigger,
+path and headers. `npm_lockfile` stays its own Node function. Hand-offs that
+used to be async executions of other functions are now async executions of
+`hydra` itself on `/tasks/scan` and `/tasks/agent-step`, so
+`SCAN_REPO_FUNCTION_ID` and `AGENT_STEP_FUNCTION_ID` are gone.
+
+### Internal tasks are HMAC-signed
+
+`hydra` must be executable by `any` so GitHub can reach it, which means anyone
+can call a task path. Task bodies are signed with HMAC-SHA256 keyed with
+`APPWRITE_API_KEY` (`x-hydra-signature: sha256=<hex>`, GitHub's format), and an
+unsigned or badly signed task gets 403. An empty key refuses every task.
+
+### Function requirements are pinned to `uv.lock`
+
+Unpinned, Appwrite installed appwrite 27.1.0 while the tests ran on 26.0.0.
+`backend/functions/hydra/requirements.txt` now pins with `==` to `uv.lock`, and
+a test enforces it.
+
 ## Pending (blocked on credentials)
 
 - **Spike A (VectorsDB)**, **Spike B (`npm_lockfile` Node function)** and

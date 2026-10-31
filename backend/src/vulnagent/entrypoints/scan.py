@@ -9,7 +9,7 @@ from vulnagent.scanning.scan import RepoScanner
 from vulnagent.services.triggers import maybe_start_agent
 
 
-def main(context: Any) -> Any:
+def handle(context: Any) -> Any:
     payload = context.req.body_json or {}
     repo_id = str(payload.get("repo_id", ""))
     trigger = str(payload.get("trigger", "manual"))
@@ -37,8 +37,6 @@ def main(context: Any) -> Any:
 
         context.log(f"{repo.full_name}: {result.vulns_found} vulnerabilities")
         maybe_start_agent(app, repo, result)
-        return context.res.json(
-            {"scan_id": result.scan_id, "vulns_found": result.vulns_found}
-        )
+        return context.res.json({"scan_id": result.scan_id, "vulns_found": result.vulns_found})
     finally:
         app.close()

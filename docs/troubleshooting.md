@@ -57,7 +57,7 @@ The first real test of spike B. Check, in order:
    call and check the execution log.
 2. Is 300 seconds enough? A cold npm with a large tree can be slow. The
    function's own subprocess cap is 120s; raise both if needed.
-3. Does `npm` exist in the runtime at all? The node-20 runtime should ship it;
+3. Does `npm` exist in the runtime at all? The node-22 runtime should ship it;
    log `npm --version` if in doubt.
 
 If it cannot work, the spec's fallback is a Docker worker with Python and Node
@@ -66,9 +66,18 @@ that polls for runs in `PATCHING`. It implements the same
 
 ### Everything imports but nothing happens
 
-Check `make doctor`. The usual cause is an unset `SCAN_REPO_FUNCTION_ID` or
-`AGENT_STEP_FUNCTION_ID`: they default to `scan_repo` and `agent_step`, which
-only works if your deployed function ids match those names exactly.
+Handlers hand work to each other as signed async executions of `hydra` on
+`/tasks/scan` and `/tasks/agent-step`. When those tasks never run, check in
+order:
+
+1. **`APPWRITE_API_KEY` in `hydra`'s environment.** It is the task signing
+   key. If it is empty, every task is refused, so scans and runs are queued
+   but never execute.
+2. **`hydra`'s executions log** in the Appwrite console. A task execution that
+   returned 403 failed its `x-hydra-signature` check; one that raised shows the
+   exception.
+
+`make doctor` reports which variables are still empty locally.
 
 ## Installation and webhooks
 
@@ -166,8 +175,10 @@ For `AWAITING_CI`, check that the repository has a workflow that runs on
 pull requests, and that `workflow_run` and `check_suite` are subscribed in the
 app settings. A repository with no workflows at all is treated as passing.
 
-For a lost execution, re-enqueue `agent_step` with
-`{run_id, expected_state: <current state>}`. It is idempotent.
+For a lost execution, re-enqueue the `agent_step` task with
+`{run_id, expected_state: <current state>}`, either through `TaskQueue` or as
+an async execution of `hydra` on `/tasks/agent-step` with a valid
+`x-hydra-signature`. It is idempotent.
 
 To clear a stuck repository by hand, set `active_run_id` to null and
 `agent_state` to `idle` on the repo row, and set the run to `CANCELLED`.

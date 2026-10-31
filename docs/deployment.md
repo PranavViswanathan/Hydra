@@ -17,13 +17,13 @@ check after a deploy.
 flowchart TB
     subgraph Repo["This repository"]
         SRC["backend/src/vulnagent/"]
-        FN["backend/functions/*/src/main.py"]
+        FN["backend/functions/hydra/src/main.py"]
         NODE["functions-node/npm_lockfile/"]
         UI["apps/dashboard/"]
     end
 
     BUILD["scripts/build_functions.py"]
-    SRC -->|copied into each| BUILD
+    SRC -->|copied in| BUILD
     FN --> BUILD
     BUILD --> PUSH["appwrite push functions"]
     NODE --> PUSH
@@ -32,24 +32,32 @@ flowchart TB
     PUSH --> AW["Appwrite project"]
 ```
 
-Seven functions: six Python, one Node. The dashboard is static files and does
-not have to live on Appwrite at all.
+Two functions: `hydra` (Python) and `npm_lockfile` (Node). Appwrite's free plan
+allows only two, so the six Python handlers share one function and a router
+picks between them; see
+[One function, six handlers](architecture.md#one-function-six-handlers). The
+dashboard is static files and does not have to live on Appwrite at all.
 
 ## Why functions are vendored
 
 Appwrite builds each function from its own folder. It cannot see the uv
 workspace, so a function importing `vulnagent` would fail at build time.
 
-`scripts/build_functions.py` copies `backend/src/vulnagent/` into each
-function's `src/` directory before deploy:
+`scripts/build_functions.py` copies `backend/src/vulnagent/` into the
+function's `src/` directory before deploy. `main.py` only re-exports
+`vulnagent.entrypoints.main.main`; the handlers live in the package:
 
 ```
-backend/functions/scan_repo/
+backend/functions/hydra/
 ├── src/
 │   ├── main.py              committed
 │   └── vulnagent/           copied in, gitignored
-└── requirements.txt         committed
+└── requirements.txt         committed, pinned with ==
 ```
+
+`requirements.txt` pins every package with `==` to the version in `uv.lock`,
+and a test enforces it. Unpinned, Appwrite installed appwrite 27.1.0 while the
+tests ran on 26.0.0.
 
 The copies are in `.gitignore`, so the package has exactly one source of
 truth. Re-run `make build-functions` after any change under
@@ -62,31 +70,32 @@ cheaper trade at this size.
 
 ## Function reference
 
-| Function | Runtime | Trigger | Timeout | Execute permission |
+| Function | Runtime | Triggers | Timeout | Execute permission |
 |---|---|---|---|---|
-| `github_webhook` | python-3.12 | HTTP | 30s | `any` (GitHub is unauthenticated to Appwrite) |
-| `scheduler` | python-3.12 | cron `*/15 * * * *` | 120s | none |
-| `scan_repo` | python-3.12 | async execution | 900s | none |
-| `agent_step` | python-3.12 | async execution | 900s | none |
-| `on_vuln_created` | python-3.12 | row create on `vulnerabilities` | 30s | none |
-| `api` | python-3.12 | HTTP | 30s | `users` |
-| `npm_lockfile` | node-20 | sync execution | 300s | none |
+| `hydra` | python-3.12 | HTTP, 60-minute interval, row create on `vulnerabilities`, signed self-executions | 900s | `any` (GitHub is unauthenticated to Appwrite) |
+| `npm_lockfile` | node-22 | sync execution | 300s | none |
 
-"Execute permission: none" means only the server API key can invoke it, which
-is what you want for everything the dashboard does not call directly.
+"Execute permission: none" means only the server API key can invoke it.
+`hydra` has to be `any`, which is why its internal task paths check an
+HMAC signature instead of trusting the caller; see
+[Why tasks are signed](architecture.md#why-tasks-are-signed). Dashboard calls
+are authenticated by the user's JWT inside the `api` handler.
 
 ### Why those timeouts
 
-**30s on `github_webhook`** because GitHub retries a delivery that takes too
-long. The function verifies, claims the delivery id, enqueues the real work and
-returns. It must never do the work itself.
+A timeout is per function, so every `hydra` handler gets 900s. The slow
+handlers set that number; the fast ones still return quickly.
 
-**900s on `scan_repo`** because a large repository is thousands of packages,
+**The `github_webhook` handler stays fast** because GitHub retries a delivery
+that takes too long. It verifies, claims the delivery id, enqueues the real
+work as a signed task and returns. It must never do the work itself.
+
+**900s for `scan`** because a large repository is thousands of packages,
 several OSV batches, and an advisory fetch for each one not already cached.
 The first scan of a big repo is the slow one; later scans mostly hit the
 cache.
 
-**900s on `agent_step`** because the repair step downloads logs, calls a model
+**900s for `agent_step`** because the repair step downloads logs, calls a model
 and commits. One transition, but a slow one.
 
 **300s on `npm_lockfile`** because `npm install --package-lock-only` has to
@@ -105,7 +114,8 @@ flowchart LR
     D -->|AWAITING_CI:<br/>no reschedule| E["waits for a webhook"]
 ```
 
-Each link is a separate execution with its own timeout, so a long run never
+Each link is a separate execution of `hydra` on `/tasks/agent-step`, with its
+own timeout, so a long run never
 hits one. The payload carries `expected_state`, and an execution whose
 expectation no longer matches the stored state exits without acting.
 
@@ -117,13 +127,31 @@ make deploy
 
 Which is:
 
-1. `make check` — lint, types, both test suites. A red build does not ship.
-2. `make build-functions` — vendor the package into all six Python functions.
-3. `appwrite push functions` — upload using `appwrite.config.json`.
+1. `make check`: lint, types, both test suites. A red build does not ship.
+2. `make build-functions`: vendor the package into `hydra`.
+3. `appwrite push functions`: upload using `appwrite.config.json`.
 
 `appwrite.config.json` carries each function's id, runtime, entrypoint, build
-command, timeout, events and scopes. Fill in `projectId` before the first
-push.
+command, timeout and events. Fill in `projectId` before the first push.
+
+The functions declare no scopes on purpose. Every one of them authenticates
+with `APPWRITE_API_KEY`, never with the key Appwrite injects per execution,
+so granting scopes would only hand out access nothing uses. A project also
+refuses scopes its own keys do not hold, which fails the push with "An API
+key cannot grant scopes it does not hold".
+
+`appwrite.config.json` declares two functions. `hydra` has execute `["any"]`,
+the event `databases.vulnagent.tables.vulnerabilities.rows.*.create`, the
+`interval` 60 (no cron `schedule`), timeout 900 and scopes `[]`. `npm_lockfile` runs on
+node-22 with timeout 300.
+
+The scheduler runs on an interval rather than cron because Appwrite Cloud's
+free plan no longer accepts cron schedules (the push fails with "Your current
+plan doesn't support cron schedules"), and 60 minutes is the shortest interval
+it allows. Interval runs still arrive with `x-appwrite-trigger: schedule`, so
+routing is unaffected. The cost is latency: a repository is scanned up to an
+hour after its `next_scan_at`. On a paid plan, a shorter `interval` works with
+no code change.
 
 Environment variables are set per function in the Appwrite console, or with
 `appwrite functions create-variable`. They are not in the config file, because
@@ -131,16 +159,13 @@ that file is committed.
 
 | Function | Needs |
 |---|---|
-| `github_webhook` | Appwrite, GitHub, `SCAN_REPO_FUNCTION_ID`, `AGENT_STEP_FUNCTION_ID` |
-| `scheduler` | Appwrite, `SCAN_REPO_FUNCTION_ID` |
-| `scan_repo` | Appwrite, GitHub, `OSV_BASE_URL`, `AGENT_STEP_FUNCTION_ID` |
-| `agent_step` | All of the above plus `LLM_*`, `EMBEDDING_*`, `NPM_LOCKFILE_FUNCTION_ID` |
-| `on_vuln_created` | Appwrite, `AGENT_STEP_FUNCTION_ID` |
-| `api` | Appwrite, `SCAN_REPO_FUNCTION_ID`, `AGENT_STEP_FUNCTION_ID` |
+| `hydra` | Every server variable in [Configuration](configuration.md#environment-variables) (Appwrite, GitHub, `OSV_BASE_URL`, `LLM_*`, `EMBEDDING_*`) plus `NPM_LOCKFILE_FUNCTION_ID`. Not the `VITE_*` ones |
 | `npm_lockfile` | none |
 
-`agent_step` is the one that needs everything, because it is the only function
-that talks to the model, the memory and the lockfile helper.
+One function runs every handler, so it needs the union of what they need.
+`APPWRITE_API_KEY` doubles as the task signing key: without it every internal
+task is refused with 403. `APPWRITE_FUNCTION_ID` is injected by Appwrite and
+names the function tasks are sent to.
 
 ## The dashboard
 
@@ -154,7 +179,8 @@ Static files. Three things to get right:
    Changing one means rebuilding.
 2. **Only public values belong there.** No API key ever goes into a `VITE_`
    variable; the dashboard authenticates as the user, and privileged work
-   happens in the `api` function.
+   happens in the `api` handler of `hydra`. `VITE_API_FUNCTION_ID` is
+   `hydra`.
 3. **It needs SPA routing.** `/repos/:id` and `/setup` must serve
    `index.html`, or a refresh on a detail page 404s.
 
@@ -162,7 +188,7 @@ Static files. Three things to get right:
 
 In order:
 
-1. **Set the webhook URL.** The GitHub App needs `github_webhook`'s public
+1. **Set the webhook URL.** The GitHub App needs `hydra`'s public
    domain, which does not exist until the first deploy. This is the one
    chicken-and-egg in the setup.
 2. **Install the app on a repository.** Check that `installations` and `repos`
@@ -190,5 +216,6 @@ Two things that do not roll back with it:
   embedding model means a new collection and a reseed.
 
 To stop the agent without rolling anything back, set `enabled: false` in the
-affected repository's `.vulnagent.yml`, or disable the `scheduler` function to
-stop all scheduled work while leaving webhooks flowing.
+affected repository's `.vulnagent.yml`. The scheduler is no longer a separate
+function, so there is no switch that stops only scheduled work: disabling
+`hydra` stops webhooks, the dashboard and tasks too.

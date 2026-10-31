@@ -1,7 +1,7 @@
 # Dashboard
 
 A Vite + React + TypeScript single-page app. Reads TablesDB directly through
-the Appwrite Web SDK, writes through the `api` function, and updates itself
+the Appwrite Web SDK, writes through the `api` handler of the `hydra` function, and updates itself
 through Realtime.
 
 - [Running it](#running-it)
@@ -35,7 +35,7 @@ flowchart LR
     P["pages and components"] --> H["hooks/useData.ts"]
     H --> A["lib/api.ts"]
     A --> C{"VITE_APPWRITE_PROJECT_ID<br/>set?"}
-    C -->|yes| R["Appwrite Web SDK<br/>+ the api function"]
+    C -->|yes| R["Appwrite Web SDK<br/>+ hydra's api handler"]
     C -->|no| D["lib/mock.ts<br/>in-memory backend"]
 ```
 
@@ -142,14 +142,15 @@ sequenceDiagram
     U->>C: presses Fix now
     C->>A: api.fixNow(repoId)
     A->>AW: account.createJWT()
-    A->>AW: functions.createExecution(api, POST /repos/{id}/fix)
+    A->>AW: functions.createExecution(hydra, POST /repos/{id}/fix)
     AW-->>A: { run_id }
     A->>Q: invalidate every query
 ```
 
 Reads go straight to TablesDB, because Appwrite's row permissions already
 restrict them to the signed-in user's repositories. Writes go through the
-`api` function, which holds the server key and re-checks ownership.
+`api` handler of `hydra` (`VITE_API_FUNCTION_ID=hydra`), which holds the
+server key and re-checks ownership.
 
 ## Live updates
 
